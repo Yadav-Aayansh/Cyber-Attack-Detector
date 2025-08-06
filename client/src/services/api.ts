@@ -1,6 +1,6 @@
 import { ApiResponse, LogEntry, ScanEndpoint, ScanParams } from '../types';
 
-const API_BASE_URL = 'http://127.0.0.1:6969';
+const API_BASE_URL = 'https://cyber-attack-detector-server.vercel.app';
 
 class ApiService {
   private async makeRequest<T>(
