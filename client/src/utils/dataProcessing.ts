@@ -1,5 +1,4 @@
-import { LogEntry, ProcessedLogEntry, AnalysisSummary } from '../types';
-import { ATTACK_TYPES } from '../config/attackTypes';
+import { LogEntry, ProcessedLogEntry } from '../types';
 
 export function processLogData(
   data: any,
@@ -51,51 +50,6 @@ export function processLogData(
   }
 
   return entries;
-}
-
-export function generateAnalysisSummary(
-  allResults: ProcessedLogEntry[]
-): AnalysisSummary {
-  const attackTypeCounts: Record<string, number> = {};
-  const ipCounts: Record<string, number> = {};
-  const statusCodeCounts: Record<string, number> = {};
-  const dailyCounts: Record<string, number> = {};
-
-  for (const entry of allResults) {
-    // Attack type counts
-    attackTypeCounts[entry.attack_type] = (attackTypeCounts[entry.attack_type] || 0) + 1;
-
-    // IP counts
-    ipCounts[entry.ip] = (ipCounts[entry.ip] || 0) + 1;
-
-    // Status code counts
-    const statusCode = entry.status.toString();
-    statusCodeCounts[statusCode] = (statusCodeCounts[statusCode] || 0) + 1;
-
-    // Daily counts
-    const ts = entry.timestamp;
-    if (ts && !isNaN(Date.parse(ts))) {
-      const date = new Date(ts).toISOString().split('T')[0];
-      dailyCounts[date] = (dailyCounts[date] || 0) + 1;
-    }
-  }
-
-  const topAttackers = Object.entries(ipCounts)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 10)
-    .map(([ip, count]) => ({ ip, count }));
-
-  const timelineData = Object.entries(dailyCounts)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, count]) => ({ date, count }));
-
-  return {
-    totalThreats: allResults.length,
-    attackTypeCounts,
-    topAttackers,
-    statusCodeDistribution: statusCodeCounts,
-    timelineData,
-  };
 }
 
 export function exportToCSV(data: ProcessedLogEntry[]): string {

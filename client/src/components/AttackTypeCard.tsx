@@ -1,12 +1,14 @@
 import React from 'react';
-import { Eye, Shield, AlertTriangle, Info } from 'lucide-react';
+import { Eye, Shield, AlertTriangle, Info, Play, CheckCircle } from 'lucide-react';
 import { AttackTypeConfig } from '../types';
 
 interface AttackTypeCardProps {
   config: AttackTypeConfig;
   count: number;
   isLoading?: boolean;
+  onScan: () => void;
   onViewDetails: () => void;
+  hasResults?: boolean;
 }
 
 const severityIcons = {
@@ -15,7 +17,7 @@ const severityIcons = {
   low: Info,
 };
 
-export function AttackTypeCard({ config, count, isLoading, onViewDetails }: AttackTypeCardProps) {
+export function AttackTypeCard({ config, count, isLoading, onScan, onViewDetails, hasResults }: AttackTypeCardProps) {
   const SeverityIcon = severityIcons[config.severity];
 
   return (
@@ -61,14 +63,35 @@ export function AttackTypeCard({ config, count, isLoading, onViewDetails }: Atta
         {config.description}
       </p>
 
-      <button
-        onClick={onViewDetails}
-        disabled={isLoading || count === 0}
-        className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gray-900 dark:bg-gray-700 text-white rounded-lg hover:bg-gray-800 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <Eye className="w-4 h-4" />
-        <span>View Details</span>
-      </button>
+      <div className="space-y-2">
+        <button
+          onClick={onScan}
+          disabled={isLoading}
+          className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+        >
+          {hasResults ? (
+            <>
+              <CheckCircle className="w-4 h-4" />
+              <span>Rescan</span>
+            </>
+          ) : (
+            <>
+              <Play className="w-4 h-4" />
+              <span>Scan</span>
+            </>
+          )}
+        </button>
+        
+        {hasResults && (
+          <button
+            onClick={onViewDetails}
+            className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+          >
+            <Eye className="w-4 h-4" />
+            <span>View Results ({count})</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -87,7 +87,6 @@ export interface SavedAnalysis {
   id: number;
   name: string;
   uploadDate: string;
-  summary: AnalysisSummary;
   results: ProcessedLogEntry[];
 }
 
