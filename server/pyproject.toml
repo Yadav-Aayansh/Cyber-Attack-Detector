@@ -1,0 +1,10 @@
+[project]
+name = "fastapi-app"
+version = "0.1.0"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "pandas",
+    "python-multipart",
+    "pyInjection"
+]
