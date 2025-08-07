@@ -17,6 +17,7 @@ import { processLogData, exportToCSV, exportToJSON, downloadFile } from './utils
 
 // Services and config
 import { apiService } from './services/api';
+import { clientAnalysisService } from './services/clientSideAnalysis';
 import { geminiService } from './services/gemini';
 import { ATTACK_TYPES } from './config/attackTypes';
 
@@ -95,6 +96,8 @@ function App() {
     setAllResults([]);
     setScanResults({});
     setGeminiAnalysis(null);
+    // Clear any previous analysis data
+    clientAnalysisService.clear();
     addToast(`File "${file.name}" selected successfully`, 'success');
   };
 
@@ -109,8 +112,6 @@ function App() {
     try {
       const response = await apiService.scanLogs(attackType.endpoint, {
         file: selectedFile,
-        limit: 1000,
-        offset: 0,
       });
 
       const processedData = processLogData(response.results, attackType.name);
@@ -222,18 +223,6 @@ function App() {
             </div>
 
             <div className="flex items-center space-x-4">
-              {/* Gemini API Key Input */}
-              <div className="hidden md:flex items-center space-x-2">
-                <Key className="w-4 h-4 text-gray-400" />
-                <input
-                  type="password"
-                  placeholder="Gemini API Key"
-                  value={geminiApiKey}
-                  onChange={(e) => setGeminiApiKey(e.target.value)}
-                  className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
-
               {/* Export Buttons */}
               {allResults.length > 0 && (
                 <div className="flex items-center space-x-2">
@@ -360,28 +349,13 @@ function App() {
 
         {activeView === 'analysis' && (
           <div className="space-y-6">
-            {/* API Key Input for Mobile */}
-            <div className="md:hidden bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Gemini API Key
-              </label>
-              <div className="flex items-center space-x-2">
-                <Key className="w-4 h-4 text-gray-400" />
-                <input
-                  type="password"
-                  placeholder="Enter your Gemini API key"
-                  value={geminiApiKey}
-                  onChange={(e) => setGeminiApiKey(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
-            </div>
-
             <GeminiAnalysis
               analysis={geminiAnalysis}
               isLoading={isAnalyzing}
               onAnalyze={handleGeminiAnalysis}
               hasApiKey={!!geminiApiKey.trim()}
+              geminiApiKey={geminiApiKey}
+              onApiKeyChange={setGeminiApiKey}
             />
           </div>
         )}
