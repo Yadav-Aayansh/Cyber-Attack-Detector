@@ -1,4 +1,4 @@
-# LogGuard Pro - Client-Side Security Log Analysis
+# Cyber Attack Detector - Client-Side Security Log Analysis
 
 A powerful, browser-based security log analysis tool that detects various types of cyber attacks and threats directly in your browser without requiring a backend server.
 
