@@ -34,7 +34,6 @@ A powerful, browser-based security log analysis tool that detects various types 
 1. Clone the repository:
 ```bash
 git clone https://github.com/Yadav-Aayansh/Cyber-Attack-Detector
-cd client
 ```
 
 2. Install dependencies:
