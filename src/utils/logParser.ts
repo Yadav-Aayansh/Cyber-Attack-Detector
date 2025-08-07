@@ -15,11 +15,38 @@ export interface ParsedLogEntry {
 const LOG_PATTERN = /(?<ip>\S+) - - \[(?<timestamp>.*?)\] "(?<method>\S+) (?<path>\S+) (?<protocol>[^"]+)" (?<status>\d{3}) (?<bytes>\S+) "(?<referrer>[^"]*)" "(?<user_agent>[^"]*)" (?<host>\S+) (?<server_ip>\S+)/;
 
 function parseTimestamp(timestamp: string): string {
-  // Convert timestamp from log format to ISO string or keep as is
-  // Example: "10/Oct/2023:13:55:36 +0000" -> standardized format
+  // Convert timestamp from log format to ISO string
+  // Example: "30/Apr/2024:07:12:09 -0500" -> ISO format
   try {
-    // Parse common log format timestamp
-    const date = new Date(timestamp.replace(/(\d{2})\/(\w{3})\/(\d{4}):(\d{2}):(\d{2}):(\d{2}) ([+-]\d{4})/, '$3-$2-$1T$4:$5:$6$7'));
+    // Parse common log format timestamp: DD/MMM/YYYY:HH:MM:SS TIMEZONE
+    const match = timestamp.match(/(\d{2})\/(\w{3})\/(\d{4}):(\d{2}):(\d{2}):(\d{2}) ([+-]\d{4})/);
+    if (!match) {
+      return timestamp;
+    }
+    
+    const [, day, monthName, year, hour, minute, second, timezone] = match;
+    
+    // Convert month name to number
+    const monthMap: Record<string, string> = {
+      'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
+      'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
+      'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
+    };
+    
+    const month = monthMap[monthName];
+    if (!month) {
+      return timestamp;
+    }
+    
+    // Create ISO format string: YYYY-MM-DDTHH:MM:SS+TIMEZONE
+    const isoString = `${year}-${month}-${day}T${hour}:${minute}:${second}${timezone}`;
+    
+    // Validate the date by creating a Date object
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) {
+      return timestamp;
+    }
+    
     return date.toISOString();
   } catch {
     // If parsing fails, return original timestamp
