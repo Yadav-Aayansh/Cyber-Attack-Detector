@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronUp, ChevronDown, Search, Filter } from 'lucide-react';
+import { ChevronUp, ChevronDown, Search, Filter, X } from 'lucide-react';
 import { ProcessedLogEntry, Filters } from '../types';
 
-interface DataTableProps {
+interface FacetedDataTableProps {
   data: ProcessedLogEntry[];
   isLoading?: boolean;
   filters: Filters;
@@ -21,7 +21,7 @@ interface Facets {
   status: FacetOption[];
 }
 
-export function DataTable({ data, isLoading, filters, onFiltersChange }: DataTableProps) {
+export function FacetedDataTable({ data, isLoading, filters, onFiltersChange }: FacetedDataTableProps) {
   const [sortField, setSortField] = useState<keyof ProcessedLogEntry>('timestamp');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -336,7 +336,7 @@ export function DataTable({ data, isLoading, filters, onFiltersChange }: DataTab
           {/* Table */}
           <div className="overflow-x-auto overflow-y-auto max-h-[600px] premium-scrollbar">
             <table className="w-full min-w-[1200px]">
-              <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0 z-10">
+              <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
                   {[
                     { key: 'ip', label: 'IP Address' },
@@ -380,7 +380,7 @@ export function DataTable({ data, isLoading, filters, onFiltersChange }: DataTab
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900 dark:text-white max-w-xs">
                       <div className="truncate" title={entry.path}>
-                        {entry.path}
+                      {entry.path}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
@@ -399,7 +399,7 @@ export function DataTable({ data, isLoading, filters, onFiltersChange }: DataTab
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-300 max-w-xs">
                       <div className="truncate" title={entry.suspicion_reason}>
-                        {entry.suspicion_reason}
+                      {entry.suspicion_reason}
                       </div>
                     </td>
                   </tr>

@@ -6,7 +6,8 @@ import { FileUpload } from './components/FileUpload';
 import { AttackTypeCard } from './components/AttackTypeCard';
 import { Dashboard } from './components/Dashboard';
 import { DataTable } from './components/DataTable';
-import { GeminiAnalysis } from './components/GeminiAnalysis';
+import { FacetedDataTable } from './components/FacetedDataTable';
+import { AIAnalysis } from './components/AIAnalysis';
 import { Modal } from './components/Modal';
 import { Toast } from './components/Toast';
 
@@ -18,7 +19,7 @@ import { processLogData, exportToCSV, exportToJSON, downloadFile } from './utils
 // Services and config
 import { apiService } from './services/api';
 import { clientAnalysisService } from './services/clientSideAnalysis';
-import { geminiService } from './services/gemini';
+import { aiAnalysisService } from './services/aiAnalysis';
 import { ATTACK_TYPES } from './config/attackTypes';
 
 // Types
@@ -33,9 +34,14 @@ function App() {
   const [allResults, setAllResults] = useState<ProcessedLogEntry[]>([]);
   const [scanResults, setScanResults] = useState<Record<string, ProcessedLogEntry[]>>({});
   const [isScanning, setIsScanning] = useState<Record<string, boolean>>({});
-  const [geminiApiKey, setGeminiApiKey] = useState('');
-  const [geminiAnalysis, setGeminiAnalysis] = useState<string | null>(null);
+  
+  // AI Analysis state
+  const [selectedProvider, setSelectedProvider] = useState('gemini');
+  const [apiKey, setApiKey] = useState('');
+  const [customEndpoint, setCustomEndpoint] = useState('');
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  
   const [activeView, setActiveView] = useState<'overview' | 'dashboard' | 'data' | 'analysis'>('overview');
   const [selectedAttackType, setSelectedAttackType] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -48,6 +54,7 @@ function App() {
     dateRange: '',
     severity: '',
     search: '',
+    method: '',
   });
 
   // Computed values
@@ -95,7 +102,7 @@ function App() {
     setSelectedFile(file);
     setAllResults([]);
     setScanResults({});
-    setGeminiAnalysis(null);
+    setAiAnalysis(null);
     // Clear any previous analysis data
     clientAnalysisService.clear();
     addToast(`File "${file.name}" selected successfully`, 'success');
@@ -136,14 +143,72 @@ function App() {
     }
   };
 
+  const handleRunAll = async () => {
+    if (!selectedFile) {
+      addToast('Please select a log file first', 'error');
+      return;
+    }
+
+    addToast('Starting comprehensive security scan...', 'info');
+    
+    // Clear previous results
+    setAllResults([]);
+    setScanResults({});
+
+    let totalThreats = 0;
+    let completedScans = 0;
+
+    // Run scans sequentially to avoid overwhelming the system
+    for (const attackType of ATTACK_TYPES) {
+      try {
+        setIsScanning(prev => ({ ...prev, [attackType.name]: true }));
+        
+        const response = await apiService.scanLogs(attackType.endpoint, {
+          file: selectedFile,
+        });
+
+        const processedData = processLogData(response.results, attackType.name);
+        totalThreats += processedData.length;
+        completedScans++;
+        
+        setScanResults(prev => ({
+          ...prev,
+          [attackType.name]: processedData,
+        }));
+
+        // Update all results
+        setAllResults(prev => [...prev, ...processedData]);
+
+        // Show progress
+        addToast(`${attackType.name}: ${processedData.length} threats found (${completedScans}/${ATTACK_TYPES.length})`, 'success');
+        
+      } catch (error) {
+        console.error(`Scan failed for ${attackType.name}:`, error);
+        addToast(`Failed to scan for ${attackType.name}`, 'error');
+        completedScans++;
+      } finally {
+        setIsScanning(prev => ({ ...prev, [attackType.name]: false }));
+      }
+    }
+
+    // Final summary
+    addToast(`Comprehensive scan completed! Found ${totalThreats} total threats across ${completedScans} attack types`, 'success');
+  };
+
   const handleViewDetails = (attackType: string) => {
     setSelectedAttackType(attackType);
     setIsModalOpen(true);
   };
 
-  const handleGeminiAnalysis = async () => {
-    if (!geminiApiKey.trim()) {
-      addToast('Please enter your Gemini API key', 'error');
+  const handleAiAnalysis = async () => {
+    const config = {
+      providerId: selectedProvider,
+      apiKey,
+      customEndpoint,
+    };
+
+    if (!aiAnalysisService.canAnalyze(config)) {
+      addToast('Please configure your AI provider settings', 'error');
       return;
     }
 
@@ -155,12 +220,12 @@ function App() {
     setIsAnalyzing(true);
 
     try {
-      const analysis = await geminiService.analyzeSecurityThreats(allResults, geminiApiKey);
-      setGeminiAnalysis(analysis);
+      const analysis = await aiAnalysisService.analyzeSecurityThreats(allResults, config);
+      setAiAnalysis(analysis);
       addToast('AI analysis completed successfully', 'success');
     } catch (error) {
-      console.error('Gemini analysis failed:', error);
-      addToast('Failed to get AI analysis. Please check your API key.', 'error');
+      console.error('AI analysis failed:', error);
+      addToast(`Failed to get AI analysis: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
     } finally {
       setIsAnalyzing(false);
     }
@@ -309,9 +374,28 @@ function App() {
             {/* Attack Type Cards */}
             {selectedFile && (
               <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
-                  Security Threat Analysis
-                </h2>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                    Security Threat Analysis
+                  </h2>
+                  <button
+                    onClick={handleRunAll}
+                    disabled={Object.values(isScanning).some(Boolean)}
+                    className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                  >
+                    {Object.values(isScanning).some(Boolean) ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Running Scans...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Shield className="w-5 h-5" />
+                        <span>Run All Scans</span>
+                      </>
+                    )}
+                  </button>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {ATTACK_TYPES.map((attackType) => (
                     <AttackTypeCard
@@ -349,13 +433,21 @@ function App() {
 
         {activeView === 'analysis' && (
           <div className="space-y-6">
-            <GeminiAnalysis
-              analysis={geminiAnalysis}
+            <AIAnalysis
+              analysis={aiAnalysis}
               isLoading={isAnalyzing}
-              onAnalyze={handleGeminiAnalysis}
-              hasApiKey={!!geminiApiKey.trim()}
-              geminiApiKey={geminiApiKey}
-              onApiKeyChange={setGeminiApiKey}
+              onAnalyze={handleAiAnalysis}
+              canAnalyze={aiAnalysisService.canAnalyze({
+                providerId: selectedProvider,
+                apiKey,
+                customEndpoint,
+              })}
+              selectedProvider={selectedProvider}
+              onProviderChange={setSelectedProvider}
+              apiKey={apiKey}
+              onApiKeyChange={setApiKey}
+              customEndpoint={customEndpoint}
+              onCustomEndpointChange={setCustomEndpoint}
             />
           </div>
         )}
@@ -368,7 +460,7 @@ function App() {
         title={`${selectedAttackType} - Detailed Results`}
         size="xl"
       >
-        <DataTable
+        <FacetedDataTable
           data={modalData}
           filters={filters}
           onFiltersChange={setFilters}

@@ -25,12 +25,9 @@ export function Toast({ toast, onRemove }: ToastProps) {
   const Icon = iconMap[toast.type];
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      onRemove(toast.id);
-    }, 5000);
-
-    return () => clearTimeout(timer);
-  }, [toast.id, onRemove]);
+    // Remove the auto-removal logic from here since it's handled in useToast hook
+    // This prevents double timeout management
+  }, []);
 
   return (
     <div className={`${colorMap[toast.type]} text-white p-4 rounded-lg shadow-lg flex items-center space-x-3 min-w-80 max-w-md animate-slide-in`}>

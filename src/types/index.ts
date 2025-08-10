@@ -64,6 +64,7 @@ export interface Filters {
   dateRange: string;
   severity: string;
   search: string;
+  method?: string;
 }
 
 // Toast Notification
