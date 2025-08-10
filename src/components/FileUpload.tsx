@@ -1,5 +1,7 @@
 import React, { useCallback, useState } from 'react';
-import { Upload, File, AlertCircle } from 'lucide-react';
+import { Upload, File as FileIcon, AlertCircle } from 'lucide-react';
+import JSZip from 'jszip';
+import pako from 'pako';
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
@@ -27,8 +29,8 @@ export function FileUpload({
 
     if (!allowsAll) {
       const extension = '.' + file.name.split('.').pop()?.toLowerCase();
-      if (!acceptedTypes.includes(extension)) {
-        setError(`File type not supported. Accepted types: ${acceptedTypes.join(', ')}`);
+      if (!acceptedTypes.includes(extension) && !file.name.endsWith('.zip') && !file.name.endsWith('.gz')) {
+        setError(`File type not supported. Accepted types: ${acceptedTypes.join(', ')}, .zip, .gz`);
         return false;
       }
     }
@@ -37,11 +39,47 @@ export function FileUpload({
     return true;
   };
 
-  const handleFileSelect = useCallback((file: File) => {
-    if (validateFile(file)) {
+  const handleFileProcessing = async (file: File) => {
+    if (!validateFile(file)) {
+      return;
+    }
+
+    if (file.name.endsWith('.zip')) {
+      try {
+        const zip = await JSZip.loadAsync(file);
+        const firstFile = Object.keys(zip.files)[0];
+        if (firstFile) {
+          const decompressedFile = zip.file(firstFile);
+          if (decompressedFile) {
+            const blob = await decompressedFile.async('blob');
+            const newFile = new File([blob], decompressedFile.name);
+            onFileSelect(newFile);
+          }
+        }
+      } catch (e) {
+        setError('Failed to decompress zip file.');
+      }
+    } else if (file.name.endsWith('.gz')) {
+      try {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const compressedData = new Uint8Array(e.target?.result as ArrayBuffer);
+          const decompressedData = pako.inflate(compressedData);
+          const blob = new Blob([decompressedData]);
+          // The original filename is often stored in the gzip header, but pako doesn't expose it easily.
+          // We'll create a new filename, removing the .gz extension.
+          const newFileName = file.name.replace(/\.gz$/, '');
+          const newFile = new File([blob], newFileName);
+          onFileSelect(newFile);
+        };
+        reader.readAsArrayBuffer(file);
+      } catch (e) {
+        setError('Failed to decompress gzip file.');
+      }
+    } else {
       onFileSelect(file);
     }
-  }, [onFileSelect, maxSize, acceptedTypes]);
+  };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -49,9 +87,9 @@ export function FileUpload({
     
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
-      handleFileSelect(files[0]);
+      handleFileProcessing(files[0]);
     }
-  }, [handleFileSelect]);
+  }, [onFileSelect, maxSize, acceptedTypes]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -66,9 +104,9 @@ export function FileUpload({
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      handleFileSelect(files[0]);
+      handleFileProcessing(files[0]);
     }
-  }, [handleFileSelect]);
+  }, [onFileSelect, maxSize, acceptedTypes]);
 
   return (
     <div className="w-full">
@@ -89,7 +127,7 @@ export function FileUpload({
           type="file"
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           onChange={handleInputChange}
-          accept={acceptedTypes.join(',')}
+          accept={acceptedTypes.join(',') + ',.zip,.gz'}
           disabled={isLoading}
         />
         
@@ -108,7 +146,7 @@ export function FileUpload({
               Drag and drop your log file here, or click to select
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              Supported formats: {acceptedTypes.join(', ')} • Max size: {Math.round(maxSize / (1024 * 1024))}MB
+              Supported formats: {acceptedTypes.join(', ')}, .zip, .gz • Max size: {Math.round(maxSize / (1024 * 1024))}MB
             </p>
           </div>
         </div>
