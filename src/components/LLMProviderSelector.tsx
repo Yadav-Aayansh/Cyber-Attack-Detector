@@ -143,10 +143,7 @@ export function LLMProviderSelector({
             />
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {selectedProvider === 'aipipe' 
-              ? 'AIPipe.org provides free AI API access without requiring an API key'
-              : 'Enter the base URL for your OpenAI-compatible API endpoint'
-            }
+            Enter the base URL for your OpenAI-compatible API endpoint
           </p>
         </div>
       )}
@@ -200,12 +197,7 @@ export function LLMProviderSelector({
       {/* Provider Info */}
       <div className="text-sm text-gray-500 dark:text-gray-400">
         <p>
-          Your API key is stored locally and never sent to our servers. 
-          {!currentProvider.requiresApiKey && selectedProvider === 'aipipe' && (
-            <span className="text-green-600 dark:text-green-400 ml-1">
-              No API key required for AIPipe.
-            </span>
-          )}
+          Your API key is stored locally and never sent to our servers.
         </p>
       </div>
     </div>

@@ -1,13 +1,14 @@
 import React, { useState, useMemo } from 'react';
-import { Shield, Moon, Sun, Key, Download, BarChart3, Database, FileText, Sparkles } from 'lucide-react';
+import { Shield, Moon, Sun, Key, Download, BarChart3, Database, FileText, Sparkles, FileBarChart } from 'lucide-react';
 
 // Components
 import { FileUpload } from './components/FileUpload';
 import { AttackTypeCard } from './components/AttackTypeCard';
+import { DynamicAnalysisCard } from './components/DynamicAnalysisCard';
+import { ReportModal } from './components/ReportModal';
 import { Dashboard } from './components/Dashboard';
 import { DataTable } from './components/DataTable';
 import { FacetedDataTable } from './components/FacetedDataTable';
-import { AIAnalysis } from './components/AIAnalysis';
 import { Modal } from './components/Modal';
 import { Toast } from './components/Toast';
 
@@ -19,11 +20,12 @@ import { processLogData, exportToCSV, exportToJSON, downloadFile } from './utils
 // Services and config
 import { apiService } from './services/api';
 import { clientAnalysisService } from './services/clientSideAnalysis';
-import { aiAnalysisService } from './services/aiAnalysis';
+import { dynamicAnalysisService } from './services/dynamicAnalysis';
+import { reportGenerationService } from './services/reportGeneration';
 import { ATTACK_TYPES } from './config/attackTypes';
 
 // Types
-import { ProcessedLogEntry, Filters, AnalysisSummary, AttackTypeConfig } from './types';
+import { ProcessedLogEntry, Filters, AnalysisSummary, AttackTypeConfig, DynamicAnalysis } from './types';
 
 function App() {
   const { theme, toggleTheme } = useTheme();
@@ -35,16 +37,21 @@ function App() {
   const [scanResults, setScanResults] = useState<Record<string, ProcessedLogEntry[]>>({});
   const [isScanning, setIsScanning] = useState<Record<string, boolean>>({});
   
-  // AI Analysis state
+  // Dynamic Analysis state
+  const [dynamicAnalyses, setDynamicAnalyses] = useState<DynamicAnalysis[]>([]);
+  const [isCreatingAnalysis, setIsCreatingAnalysis] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState('gemini');
   const [apiKey, setApiKey] = useState('');
   const [customEndpoint, setCustomEndpoint] = useState('');
-  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   
-  const [activeView, setActiveView] = useState<'overview' | 'dashboard' | 'data' | 'analysis'>('overview');
+  const [activeView, setActiveView] = useState<'overview' | 'dashboard' | 'data'>('overview');
   const [selectedAttackType, setSelectedAttackType] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Report generation state
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [reportMarkdown, setReportMarkdown] = useState('');
 
   // Filters
   const [filters, setFilters] = useState<Filters>({
@@ -102,7 +109,6 @@ function App() {
     setSelectedFile(file);
     setAllResults([]);
     setScanResults({});
-    setAiAnalysis(null);
     // Clear any previous analysis data
     clientAnalysisService.clear();
     addToast(`File "${file.name}" selected successfully`, 'success');
@@ -200,34 +206,73 @@ function App() {
     setIsModalOpen(true);
   };
 
-  const handleAiAnalysis = async () => {
+  const handleCreateDynamicAnalysis = async (description: string) => {
     const config = {
       providerId: selectedProvider,
       apiKey,
       customEndpoint,
     };
 
-    if (!aiAnalysisService.canAnalyze(config)) {
+    if (!dynamicAnalysisService.canAnalyze(config)) {
       addToast('Please configure your AI provider settings', 'error');
       return;
     }
 
-    if (allResults.length === 0) {
-      addToast('No threat data available for analysis', 'error');
+    if (!selectedFile) {
+      addToast('Please select a log file first', 'error');
       return;
     }
 
-    setIsAnalyzing(true);
+    setIsCreatingAnalysis(true);
 
     try {
-      const analysis = await aiAnalysisService.analyzeSecurityThreats(allResults, config);
-      setAiAnalysis(analysis);
-      addToast('AI analysis completed successfully', 'success');
+      const analysis = await dynamicAnalysisService.createAnalysis(description, config);
+      setDynamicAnalyses(prev => [...prev, analysis]);
+      addToast(`Custom analysis "${analysis.name}" created successfully`, 'success');
     } catch (error) {
       console.error('AI analysis failed:', error);
-      addToast(`Failed to get AI analysis: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+      addToast(`Failed to create analysis: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
     } finally {
-      setIsAnalyzing(false);
+      setIsCreatingAnalysis(false);
+    }
+  };
+
+  const handleRunDynamicAnalysis = async (analysisId: string) => {
+    if (!selectedFile) {
+      addToast('Please select a log file first', 'error');
+      return;
+    }
+
+    setIsScanning(prev => ({ ...prev, [analysisId]: true }));
+
+    try {
+      // Load the file into the client-side analysis service if not already loaded
+      await clientAnalysisService.loadLogFile(selectedFile);
+      
+      // Get parsed entries
+      const entries = clientAnalysisService.getParsedEntries();
+      
+      // Run the dynamic analysis
+      const results = await dynamicAnalysisService.runAnalysis(analysisId, entries);
+      
+      setScanResults(prev => ({
+        ...prev,
+        [analysisId]: results,
+      }));
+
+      // Update all results
+      setAllResults(prev => {
+        const filtered = prev.filter(entry => entry.attack_type !== analysisId);
+        return [...filtered, ...results];
+      });
+
+      const analysis = dynamicAnalysisService.getAnalysis(analysisId);
+      addToast(`${analysis?.name || 'Custom analysis'} completed: ${results.length} threats found`, 'success');
+    } catch (error) {
+      console.error('Dynamic analysis failed:', error);
+      addToast(`Failed to run analysis: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+    } finally {
+      setIsScanning(prev => ({ ...prev, [analysisId]: false }));
     }
   };
 
@@ -254,6 +299,43 @@ function App() {
       addToast('Failed to export data', 'error');
     }
   };
+
+  const handleGenerateReport = async (config: {
+    providerId: string;
+    apiKey: string;
+    customEndpoint?: string;
+  }) => {
+    if (allResults.length === 0) {
+      addToast('No analysis data available to generate report', 'error');
+      return;
+    }
+
+    setIsGeneratingReport(true);
+    setReportMarkdown(''); // Clear previous report
+
+    try {
+      const markdown = await reportGenerationService.generateReport(
+        allResults,
+        summary,
+        config,
+        selectedFile?.name
+      );
+      
+      setReportMarkdown(markdown);
+      addToast('Security report generated successfully', 'success');
+    } catch (error) {
+      console.error('Report generation failed:', error);
+      addToast(`Failed to generate report: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
+  const canGenerateReport = reportGenerationService.canGenerateReport({
+    providerId: selectedProvider,
+    apiKey,
+    customEndpoint,
+  });
 
   const getAttackTypeCount = (attackType: string): number => {
     return scanResults[attackType]?.length || 0;
@@ -292,6 +374,13 @@ function App() {
               {allResults.length > 0 && (
                 <div className="flex items-center space-x-2">
                   <button
+                    onClick={() => setIsReportModalOpen(true)}
+                    className="flex items-center space-x-1 px-3 py-1 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                  >
+                    <FileBarChart className="w-4 h-4" />
+                    <span>Report</span>
+                  </button>
+                  <button
                     onClick={() => handleExport('csv')}
                     className="flex items-center space-x-1 px-3 py-1 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
                   >
@@ -328,7 +417,6 @@ function App() {
               { id: 'overview', label: 'Overview', icon: Shield },
               { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
               { id: 'data', label: 'Data Table', icon: Database },
-              { id: 'analysis', label: 'AI Analysis', icon: Sparkles },
             ].map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
@@ -378,23 +466,34 @@ function App() {
                   <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                     Security Threat Analysis
                   </h2>
-                  <button
-                    onClick={handleRunAll}
-                    disabled={Object.values(isScanning).some(Boolean)}
-                    className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                  >
-                    {Object.values(isScanning).some(Boolean) ? (
-                      <>
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        <span>Running Scans...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Shield className="w-5 h-5" />
-                        <span>Run All Scans</span>
-                      </>
+                  <div className="flex items-center space-x-3">
+                    {allResults.length > 0 && (
+                      <button
+                        onClick={() => setIsReportModalOpen(true)}
+                        className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                      >
+                        <FileBarChart className="w-5 h-5" />
+                        <span>Generate Report</span>
+                      </button>
                     )}
-                  </button>
+                    <button
+                      onClick={handleRunAll}
+                      disabled={Object.values(isScanning).some(Boolean)}
+                      className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                    >
+                      {Object.values(isScanning).some(Boolean) ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>Running Scans...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Shield className="w-5 h-5" />
+                          <span>Run All Scans</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {ATTACK_TYPES.map((attackType) => (
@@ -409,6 +508,59 @@ function App() {
                     />
                   ))}
                 </div>
+
+                {/* Dynamic Analysis Section */}
+                <div className="mt-8">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    Custom Analysis
+                  </h3>
+                  <DynamicAnalysisCard
+                    onCreateAnalysis={handleCreateDynamicAnalysis}
+                    isCreating={isCreatingAnalysis}
+                    selectedProvider={selectedProvider}
+                    onProviderChange={setSelectedProvider}
+                    apiKey={apiKey}
+                    onApiKeyChange={setApiKey}
+                    customEndpoint={customEndpoint}
+                    onCustomEndpointChange={setCustomEndpoint}
+                    canAnalyze={dynamicAnalysisService.canAnalyze({
+                      providerId: selectedProvider,
+                      apiKey,
+                      customEndpoint,
+                    })}
+                  />
+                </div>
+
+                {/* Dynamic Analysis Results */}
+                {dynamicAnalyses.length > 0 && (
+                  <div className="mt-8">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                      Custom Analysis Results
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                      {dynamicAnalyses.map((analysis) => (
+                        <AttackTypeCard
+                          key={analysis.id}
+                          config={{
+                            name: analysis.name,
+                            description: analysis.description,
+                            severity: 'medium' as const,
+                            color: '#7C3AED',
+                            endpoint: analysis.id as any,
+                          }}
+                          count={scanResults[analysis.id]?.length || 0}
+                          isLoading={isScanning[analysis.id]}
+                          onScan={() => handleRunDynamicAnalysis(analysis.id)}
+                          onViewDetails={() => {
+                            setSelectedAttackType(analysis.id);
+                            setIsModalOpen(true);
+                          }}
+                          hasResults={(scanResults[analysis.id]?.length || 0) > 0}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -431,41 +583,40 @@ function App() {
           />
         )}
 
-        {activeView === 'analysis' && (
-          <div className="space-y-6">
-            <AIAnalysis
-              analysis={aiAnalysis}
-              isLoading={isAnalyzing}
-              onAnalyze={handleAiAnalysis}
-              canAnalyze={aiAnalysisService.canAnalyze({
-                providerId: selectedProvider,
-                apiKey,
-                customEndpoint,
-              })}
-              selectedProvider={selectedProvider}
-              onProviderChange={setSelectedProvider}
-              apiKey={apiKey}
-              onApiKeyChange={setApiKey}
-              customEndpoint={customEndpoint}
-              onCustomEndpointChange={setCustomEndpoint}
-            />
-          </div>
-        )}
       </main>
 
       {/* Modal for detailed results */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={`${selectedAttackType} - Detailed Results`}
+        title={`${selectedAttackType && (dynamicAnalyses.find(a => a.id === selectedAttackType)?.name || selectedAttackType)} - Detailed Results`}
         size="xl"
       >
         <FacetedDataTable
-          data={modalData}
+          data={selectedAttackType ? (scanResults[selectedAttackType] || []) : []}
           filters={filters}
           onFiltersChange={setFilters}
         />
       </Modal>
+
+      {/* Report Generation Modal */}
+      <ReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => {
+          setIsReportModalOpen(false);
+          setReportMarkdown(''); // Clear report when closing
+        }}
+        onGenerateReport={handleGenerateReport}
+        isGenerating={isGeneratingReport}
+        reportMarkdown={reportMarkdown}
+        selectedProvider={selectedProvider}
+        onProviderChange={setSelectedProvider}
+        apiKey={apiKey}
+        onApiKeyChange={setApiKey}
+        customEndpoint={customEndpoint}
+        onCustomEndpointChange={setCustomEndpoint}
+        canGenerate={canGenerateReport}
+      />
 
       {/* Toast Notifications */}
       <div className="fixed bottom-4 right-4 space-y-2 z-50">

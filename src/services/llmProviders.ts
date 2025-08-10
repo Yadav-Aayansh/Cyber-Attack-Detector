@@ -45,9 +45,9 @@ export const LLM_PROVIDERS: LLMProvider[] = [
     id: 'aipipe',
     name: 'AIPipe',
     description: 'AIPipe.org API service',
-    requiresApiKey: false,
+    requiresApiKey: true,
     customEndpoint: true,
-    defaultEndpoint: 'https://aipipe.org/api/chat',
+    defaultEndpoint: 'https://aipipe.org/openrouter/v1/chat/completions',
   },
   {
     id: 'custom',
@@ -200,13 +200,18 @@ export class LLMService {
     };
   }
 
-  private async makeAIPipeRequest(prompt: string, endpoint: string, options: LLMRequest): Promise<LLMResponse> {
-    const response = await fetch(endpoint, {
+  private async makeAIPipeRequest(prompt: string, apiKey: string, options: LLMRequest): Promise<LLMResponse> {
+    // Use the correct AIPipe endpoint format
+    const aipipeEndpoint = 'https://aipipe.org/openrouter/v1/chat/completions';
+    
+    const response = await fetch(aipipeEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
+        model: 'openai/gpt-4o-mini',
         messages: [
           {
             role: 'user',
@@ -270,7 +275,7 @@ export class LLMService {
         return this.makeAnthropicRequest(prompt, apiKey, requestOptions);
       
       case 'aipipe':
-        return this.makeAIPipeRequest(prompt, endpoint || 'https://aipipe.org/api/chat', requestOptions);
+        return this.makeAIPipeRequest(prompt, apiKey, requestOptions);
       
       case 'custom':
         if (!endpoint) {

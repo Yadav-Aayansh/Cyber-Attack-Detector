@@ -94,6 +94,15 @@ export interface SavedAnalysis {
 // Theme Type
 export type Theme = 'light' | 'dark';
 
+// Dynamic Analysis
+export interface DynamicAnalysis {
+  id: string;
+  name: string;
+  description: string;
+  functionCode: string;
+  createdAt: string;
+}
+
 // Attack Type Configuration
 export interface AttackTypeConfig {
   name: string;

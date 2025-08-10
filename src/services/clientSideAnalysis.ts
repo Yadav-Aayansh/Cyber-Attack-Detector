@@ -77,6 +77,10 @@ export class ClientSideAnalysisService {
   clear(): void {
     this.parsedEntries = [];
   }
+
+  getParsedEntries(): ParsedLogEntry[] {
+    return this.parsedEntries;
+  }
 }
 
 // Create a singleton instance
