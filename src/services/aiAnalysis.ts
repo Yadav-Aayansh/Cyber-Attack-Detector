@@ -65,7 +65,18 @@ Please be specific and actionable in your recommendations. Focus on practical st
         }
       );
 
-      return response.text;
+      // Clean up the response to remove markdown code block fences
+      let cleanedText = response.text.trim();
+      
+      // Remove markdown code block delimiters if present
+      cleanedText = cleanedText.replace(/^```markdown\s*\n?/i, '');
+      cleanedText = cleanedText.replace(/^```\s*\n?/i, '');
+      cleanedText = cleanedText.replace(/\n?```\s*$/i, '');
+      
+      // Remove any leading/trailing whitespace after cleanup
+      cleanedText = cleanedText.trim();
+      
+      return cleanedText;
     } catch (error) {
       console.error('AI Analysis failed:', error);
       throw new Error(`Failed to get AI analysis: ${error instanceof Error ? error.message : 'Unknown error'}`);

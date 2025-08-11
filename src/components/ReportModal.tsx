@@ -278,14 +278,13 @@ export function ReportModal({
               <div className="flex-1 overflow-y-auto premium-scrollbar min-h-0 max-h-[calc(90vh-300px)]">
                 {activeTab === 'preview' ? (
                   <div 
-                    className="p-6 report-content prose prose-lg max-w-none dark:prose-invert prose-headings:text-gray-900 dark:prose-headings:text-white prose-p:text-gray-700 dark:prose-p:text-gray-300"
+                    className="p-6 prose prose-lg max-w-none dark:prose-invert"
                     dangerouslySetInnerHTML={{ 
                       __html: marked(reportMarkdown, {
                         breaks: true,
                         gfm: true,
-                        headerIds: false,
-                        mangle: false,
-                        sanitize: false,
+                        headerIds: true,
+                        mangle: true,
                       })
                     }}
                   />

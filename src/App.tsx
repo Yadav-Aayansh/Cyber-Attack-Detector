@@ -335,7 +335,12 @@ function App() {
         allResults,
         summary,
         'https://raw.githubusercontent.com/Yadav-Aayansh/gramener-datasets/add-server-logs/server_logs.zip',
-        selectedFile?.name
+        selectedFile?.name,
+        {
+          providerId: config.providerId,
+          apiKey: config.apiKey,
+          customEndpoint: config.customEndpoint,
+        }
       );
       
       setReportMarkdown(markdown);

@@ -12,14 +12,15 @@ export class ReportGenerationService {
   async generateReport(
     allResults: ProcessedLogEntry[],
     summary: AnalysisSummary,
-    config: ReportConfig,
-    fileName?: string
+    datasetUrl: string,
+    fileName?: string,
+    config?: ReportConfig
   ): Promise<string> {
-    if (!this.canGenerateReport(config)) {
+    if (!config || !this.canGenerateReport(config)) {
       throw new Error('Invalid report configuration');
     }
 
-    const reportData = this.prepareReportData(allResults, summary, fileName);
+    const reportData = this.prepareReportData(allResults, summary, fileName, datasetUrl);
     const prompt = this.buildReportPrompt(reportData);
 
     try {
@@ -34,7 +35,18 @@ export class ReportGenerationService {
         }
       );
 
-      return response.text;
+      // Clean up the response to remove markdown code block fences
+      let cleanedText = response.text.trim();
+      
+      // Remove markdown code block delimiters if present
+      cleanedText = cleanedText.replace(/^```markdown\s*\n?/i, '');
+      cleanedText = cleanedText.replace(/^```\s*\n?/i, '');
+      cleanedText = cleanedText.replace(/\n?```\s*$/i, '');
+      
+      // Remove any leading/trailing whitespace after cleanup
+      cleanedText = cleanedText.trim();
+      
+      return cleanedText;
     } catch (error) {
       console.error('Report generation failed:', error);
       throw new Error(`Failed to generate report: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -44,7 +56,8 @@ export class ReportGenerationService {
   private prepareReportData(
     allResults: ProcessedLogEntry[],
     summary: AnalysisSummary,
-    fileName?: string
+    fileName?: string,
+    datasetUrl?: string
   ) {
     // Get top attack types
     const topAttackTypes = Object.entries(summary.attackTypeCounts)
@@ -83,6 +96,7 @@ export class ReportGenerationService {
 
     return {
       fileName: fileName || 'Unknown',
+      datasetUrl: datasetUrl || 'Unknown',
       totalThreats: summary.totalThreats,
       uniqueAttackers: summary.topAttackers.length,
       analysisDate: new Date().toISOString(),
@@ -147,6 +161,7 @@ You are a cybersecurity analyst. Generate a comprehensive security analysis repo
 
 **Analysis Overview:**
 - File: ${data.fileName}
+- Dataset: ${data.datasetUrl}
 - Analysis Date: ${new Date(data.analysisDate).toLocaleString()}
 - Total Threats Detected: ${data.totalThreats}
 - Unique Attackers: ${data.uniqueAttackers}

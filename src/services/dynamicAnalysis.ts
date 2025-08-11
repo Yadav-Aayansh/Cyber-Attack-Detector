@@ -92,7 +92,11 @@ function detectThreats(entries) {
       let functionCode = response.text.trim();
       
       // Clean up the response - remove markdown code blocks if present
-      functionCode = functionCode.replace(/```javascript\n?/g, '').replace(/```\n?/g, '');
+      functionCode = functionCode.replace(/^```javascript\s*\n?/i, '');
+      functionCode = functionCode.replace(/^```js\s*\n?/i, '');
+      functionCode = functionCode.replace(/^```\s*\n?/i, '');
+      functionCode = functionCode.replace(/\n?```\s*$/i, '');
+      functionCode = functionCode.trim();
       
       // Validate that we have a function
       if (!functionCode.includes('function detectThreats')) {

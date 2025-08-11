@@ -93,7 +93,20 @@ Please provide a detailed analysis including:
 Please be specific and actionable in your recommendations. Focus on practical steps that can be implemented immediately.
     `;
 
-    return this.makeRequest(prompt, apiKey);
+    const response = await this.makeRequest(prompt, apiKey);
+    
+    // Clean up the response to remove markdown code block fences
+    let cleanedText = response.trim();
+    
+    // Remove markdown code block delimiters if present
+    cleanedText = cleanedText.replace(/^```markdown\s*\n?/i, '');
+    cleanedText = cleanedText.replace(/^```\s*\n?/i, '');
+    cleanedText = cleanedText.replace(/\n?```\s*$/i, '');
+    
+    // Remove any leading/trailing whitespace after cleanup
+    cleanedText = cleanedText.trim();
+    
+    return cleanedText;
   }
 
   private prepareThreatSummary(threats: ProcessedLogEntry[]): string {
