@@ -4,9 +4,13 @@ import { Toast } from '../types';
 export function useToast() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [timeouts, setTimeouts] = useState<Map<number, NodeJS.Timeout>>(new Map());
+  const [toastIdCounter, setToastIdCounter] = useState(0);
 
   const addToast = useCallback((message: string, type: Toast['type'] = 'info') => {
-    const id = Date.now();
+    // Generate truly unique ID by combining timestamp with counter
+    const id = Date.now() + toastIdCounter;
+    setToastIdCounter(prev => prev + 1);
+    
     const newToast: Toast = { id, message, type };
     
     setToasts(prev => [...prev, newToast]);
@@ -24,7 +28,7 @@ export function useToast() {
     setTimeouts(prev => new Map(prev).set(id, timeoutId));
     
     return id;
-  }, []);
+  }, [toastIdCounter]);
 
   const removeToast = useCallback((id: number) => {
     // Clear the timeout if it exists
@@ -49,6 +53,7 @@ export function useToast() {
     });
     
     setToasts([]);
+    setToastIdCounter(0); // Reset counter when clearing all toasts
   }, []);
 
   return {
