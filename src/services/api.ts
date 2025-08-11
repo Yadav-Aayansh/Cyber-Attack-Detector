@@ -2,9 +2,6 @@ import { ApiResponse, LogEntry, ScanEndpoint, ScanParams, ProcessedLogEntry } fr
 import { clientAnalysisService, AnalysisResult } from './clientSideAnalysis';
 import { processLogData } from '../utils/dataProcessing';
 
-// Keep the original API service for backward compatibility, but now it uses client-side analysis
-const API_BASE_URL = 'https://cyber-attack-detector-server.vercel.app';
-
 class ApiService {
   // Now using client-side analysis instead of server requests
   private convertToApiResponse(result: AnalysisResult): ApiResponse<LogEntry> {
