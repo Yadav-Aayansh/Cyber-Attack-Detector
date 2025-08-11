@@ -3,6 +3,7 @@ import { Shield, Moon, Sun, Key, Download, BarChart3, Database, FileText, Sparkl
 
 // Components
 import { FileUpload } from './components/FileUpload';
+import { DemoDatasetCard } from './components/DemoDatasetCard';
 import { AttackTypeCard } from './components/AttackTypeCard';
 import { DynamicAnalysisCard } from './components/DynamicAnalysisCard';
 import { ReportModal } from './components/ReportModal';
@@ -112,6 +113,22 @@ function App() {
     // Clear any previous analysis data
     clientAnalysisService.clear();
     addToast(`File "${file.name}" selected successfully`, 'success');
+  };
+
+  const handleLoadDemo = async (file: File): Promise<void> => {
+    try {
+      addToast('Loading demo dataset...', 'info');
+      
+      setSelectedFile(file);
+      setAllResults([]);
+      setScanResults({});
+      clientAnalysisService.clear();
+      
+      addToast(`Demo dataset "${file.name}" loaded successfully!`, 'success');
+    } catch (error) {
+      console.error('Failed to load demo dataset:', error);
+      addToast(`Failed to load demo dataset: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+    }
   };
 
   const handleScan = async (attackType: AttackTypeConfig) => {
@@ -317,7 +334,7 @@ function App() {
       const markdown = await reportGenerationService.generateReport(
         allResults,
         summary,
-        config,
+        'https://raw.githubusercontent.com/Yadav-Aayansh/gramener-datasets/add-server-logs/server_logs.zip',
         selectedFile?.name
       );
       
@@ -442,13 +459,36 @@ function App() {
             {/* File Upload */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                Upload Log File
+                Upload Log File or Try Demo
               </h2>
+              
+              {/* Demo Dataset Card */}
+              <div className="mb-6">
+                <DemoDatasetCard
+                  onLoadDemo={handleLoadDemo}
+                  isLoading={Object.values(isScanning).some(Boolean)}
+                />
+              </div>
+              
+              {/* Divider */}
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300 dark:border-gray-600" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                    Or upload your own file
+                  </span>
+                </div>
+              </div>
+              
+              {/* File Upload */}
               <FileUpload
                 onFileSelect={handleFileSelect}
                 acceptedTypes={['.log', '.txt', '*/*']}
                 maxSize={100 * 1024 * 1024} // 100MB
               />
+              
               {selectedFile && (
                 <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                   <p className="text-sm text-blue-800 dark:text-blue-200">
