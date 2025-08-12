@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Shield, AlertTriangle, Info, Play, CheckCircle } from 'lucide-react';
+import { Eye, Shield, AlertTriangle, Info, Play, CheckCircle, Code } from 'lucide-react';
 import { AttackTypeConfig } from '../types';
 
 interface AttackTypeCardProps {
@@ -8,6 +8,7 @@ interface AttackTypeCardProps {
   isLoading?: boolean;
   onScan: () => void;
   onViewDetails: () => void;
+  onViewFunction?: () => void;
   hasResults?: boolean;
 }
 
@@ -17,7 +18,7 @@ const severityIcons = {
   low: Info,
 };
 
-export function AttackTypeCard({ config, count, isLoading, onScan, onViewDetails, hasResults }: AttackTypeCardProps) {
+export function AttackTypeCard({ config, count, isLoading, onScan, onViewDetails, onViewFunction, hasResults }: AttackTypeCardProps) {
   const SeverityIcon = severityIcons[config.severity];
 
   return (
@@ -89,6 +90,16 @@ export function AttackTypeCard({ config, count, isLoading, onScan, onViewDetails
           >
             <Eye className="w-4 h-4" />
             <span>View Results ({count})</span>
+          </button>
+        )}
+        
+        {onViewFunction && (
+          <button
+            onClick={onViewFunction}
+            className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+          >
+            <Code className="w-4 h-4" />
+            <span>View Function</span>
           </button>
         )}
       </div>

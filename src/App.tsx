@@ -12,6 +12,7 @@ import { DataTable } from './components/DataTable';
 import { FacetedDataTable } from './components/FacetedDataTable';
 import { Modal } from './components/Modal';
 import { Toast } from './components/Toast';
+import { FunctionViewModal } from './components/FunctionViewModal';
 
 // Hooks and utilities
 import { useTheme } from './hooks/useTheme';
@@ -48,6 +49,15 @@ function App() {
   const [activeView, setActiveView] = useState<'overview' | 'dashboard' | 'data'>('overview');
   const [selectedAttackType, setSelectedAttackType] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Function view modal state
+  const [isFunctionModalOpen, setIsFunctionModalOpen] = useState(false);
+  const [selectedFunction, setSelectedFunction] = useState<{
+    title: string;
+    code: string;
+    description?: string;
+    isCustom?: boolean;
+  } | null>(null);
   
   // Report generation state
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -221,6 +231,253 @@ function App() {
   const handleViewDetails = (attackType: string) => {
     setSelectedAttackType(attackType);
     setIsModalOpen(true);
+  };
+
+  const handleViewFunction = (attackType: string) => {
+    // Check if it's a custom analysis
+    const customAnalysis = dynamicAnalyses.find(a => a.id === attackType);
+    if (customAnalysis) {
+      setSelectedFunction({
+        title: customAnalysis.name,
+        code: customAnalysis.functionCode,
+        description: customAnalysis.description,
+        isCustom: true,
+      });
+    } else {
+      // It's a built-in detector
+      const builtInFunction = getBuiltInDetectorCode(attackType);
+      if (builtInFunction) {
+        setSelectedFunction({
+          title: builtInFunction.name,
+          code: builtInFunction.code,
+          description: builtInFunction.description,
+          isCustom: false,
+        });
+      }
+    }
+    setIsFunctionModalOpen(true);
+  };
+
+  const getBuiltInDetectorCode = (attackType: string) => {
+    const detectorMap: Record<string, { name: string; code: string; description: string }> = {
+      'SQL Injection': {
+        name: 'SQL Injection Detector',
+        description: 'Advanced SQL injection detection using pattern matching for union-based, boolean-based, time-based, and error-based attacks.',
+        code: `export function detectSqlInjection(entries: ParsedLogEntry[]): ParsedLogEntry[] {
+  const patterns = [
+    // Union-based injections
+    "union\\\\s+(all\\\\s+)?select",
+    "select\\\\s+.*\\\\s+from",
+    "select\\\\s+\\\\*",
+    
+    // Boolean-based blind injections
+    "(and|or)\\\\s+\\\\d+\\\\s*[=<>!]+\\\\s*\\\\d+",
+    "(and|or)\\\\s+['\\\\\\\"]?[a-z]+['\\\\\\\"]?\\\\s*[=<>!]+\\\\s*['\\\\\\\"]?[a-z]+['\\\\\\\"]?",
+    "(and|or)\\\\s+\\\\d+\\\\s*(and|or)\\\\s+\\\\d+",
+    
+    // Time-based blind injections
+    "(sleep|waitfor|delay)\\\\s*\\\\(\\\\s*\\\\d+\\\\s*\\\\)",
+    "benchmark\\\\s*\\\\(\\\\s*\\\\d+",
+    "pg_sleep\\\\s*\\\\(\\\\s*\\\\d+\\\\s*\\\\)",
+    
+    // Error-based injections
+    "(convert|cast|char)\\\\s*\\\\(",
+    "concat\\\\s*\\\\(",
+    "group_concat\\\\s*\\\\(",
+    "having\\\\s+\\\\d+\\\\s*[=<>!]+\\\\s*\\\\d+",
+    
+    // Authentication bypass
+    "(admin|user|login)['\\\\\\\"]?\\\\s*(=|like)\\\\s*['\\\\\\\"]?\\\\s*(or|and)",
+    "['\\\\\\\"]\\\\s*(or|and)\\\\s*['\\\\\\\"]?[^'\\\\\\\\"]*['\\\\\\\"]?\\\\s*(=|like)",
+    "['\\\\\\\"]\\\\s*(or|and)\\\\s*\\\\d+\\\\s*[=<>!]+\\\\s*\\\\d+",
+    
+    // SQL commands and functions
+    "(drop|delete|truncate|insert|update)\\\\s+(table|from|into)",
+    "(exec|execute|sp_|xp_)\\\\w*",
+    "(information_schema|sys\\\\.|mysql\\\\.|pg_)",
+    "(load_file|into\\\\s+outfile|dumpfile)",
+    
+    // Comment patterns
+    "(--|#|\\\\*/|\\\\*\\\\*)",
+    "/\\\\*.*\\\\*/",
+    
+    // Special characters and encodings
+    "(%27|%22|%2d%2d|%23)",
+    "(0x[0-9a-f]+)",
+    "(char\\\\s*\\\\(\\\\s*\\\\d+)",
+  ];
+  
+  const sqliRegex = new RegExp(
+    patterns.map(pattern => \`(\${pattern})\`).join('|'),
+    'gim'
+  );
+  
+  const suspicious = entries.filter(entry => {
+    if (!entry.path) return false;
+    const decodedPath = decodeURIComponent(entry.path);
+    return sqliRegex.test(decodedPath);
+  });
+  
+  return suspicious.map(entry => ({
+    ...entry,
+    suspicion_reason: 'SQL injection pattern detected'
+  }));
+}`
+      },
+      'Path Traversal': {
+        name: 'Path Traversal Detector',
+        description: 'Detects directory traversal attempts and excessive path depth patterns.',
+        code: `export function detectPathTraversal(entries: ParsedLogEntry[]): ParsedLogEntry[] {
+  const suspicious = entries.filter(entry => {
+    const path = entry.path;
+    if (!path) return false;
+
+    // Check for path traversal patterns
+    const hasTraversalPattern = new RegExp('(\\\\.\\\\./|%2e%2e%2f|%2e%2f|%2f\\\\.\\\\.|/\\\\.{2})', 'i').test(path);
+    
+    // Check for excessive directory depth
+    const hasExcessiveDepth = (path.match(/\\//g) || []).length > 15;
+    
+    return hasTraversalPattern || hasExcessiveDepth;
+  });
+
+  return suspicious.map(entry => ({
+    ...entry,
+    suspicion_reason: 'Path traversal pattern detected'
+  }));
+}`
+      },
+      'Bot Detection': {
+        name: 'Bot Detection Function',
+        description: 'Identifies automated bots, crawlers, and suspicious user agents.',
+        code: `export function detectBots(entries: ParsedLogEntry[]): ParsedLogEntry[] {
+  const CRAWLERS = [
+    'googlebot', 'bingbot', 'baiduspider', 'yandexbot',
+    'duckduckbot', 'slurp', 'facebookexternalhit', 'twitterbot',
+    'applebot', 'linkedinbot', 'petalbot', 'semrushbot'
+  ];
+
+  const CLIENT_LIBS = [
+    'curl', 'wget', 'httpclient', 'python-requests', 'aiohttp',
+    'okhttp', 'java/', 'libwww-perl', 'go-http-client', 'restsharp',
+    'scrapy', 'httpie'
+  ];
+
+  function classifyUserAgent(ua: string): string | null {
+    const userAgent = ua.toLowerCase();
+    
+    if (CRAWLERS.some(crawler => userAgent.includes(crawler))) {
+      return "Crawler Bot";
+    }
+    
+    if (CLIENT_LIBS.some(lib => userAgent.includes(lib))) {
+      return "Client Library Bot";
+    }
+    
+    if (userAgent.trim() === '' || userAgent.length < 10 || !userAgent.includes('mozilla')) {
+      return "Suspicious User-Agent";
+    }
+    
+    return null;
+  }
+
+  const bots = entries.filter(entry => {
+    const botType = classifyUserAgent(entry.user_agent);
+    return botType !== null;
+  });
+
+  return bots.map(entry => ({
+    ...entry,
+    suspicion_reason: classifyUserAgent(entry.user_agent) || 'Bot detected'
+  }));
+}`
+      },
+      'LFI/RFI Attacks': {
+        name: 'LFI/RFI Attack Detector',
+        description: 'Detects Local File Inclusion and Remote File Inclusion attack patterns.',
+        code: `export function detectLfiRfi(entries: ParsedLogEntry[]): ParsedLogEntry[] {
+  const pattern = /(etc\\/passwd|proc\\/self\\/environ|input_file=|data:text)/i;
+
+  const suspicious = entries.filter(entry => {
+    return pattern.test(entry.path);
+  });
+
+  return suspicious.map(entry => ({
+    ...entry,
+    suspicion_reason: 'LFI/RFI pattern detected'
+  }));
+}`
+      },
+      'WordPress Probes': {
+        name: 'WordPress Probe Detector',
+        description: 'Identifies WordPress-specific vulnerability scanning and probing attempts.',
+        code: `export function detectWpProbe(entries: ParsedLogEntry[]): ParsedLogEntry[] {
+  const pattern = /(\\.php|\\/wp-|xmlrpc\\.php|\\?author=|\\?p=)/i;
+
+  const suspicious = entries.filter(entry => {
+    return pattern.test(entry.path);
+  });
+
+  return suspicious.map(entry => ({
+    ...entry,
+    suspicion_reason: 'WordPress probe detected'
+  }));
+}`
+      },
+      'Brute Force': {
+        name: 'Brute Force Attack Detector',
+        description: 'Detects brute force login attempts and credential stuffing attacks.',
+        code: `export function detectBruteForce(entries: ParsedLogEntry[]): ParsedLogEntry[] {
+  const loginPattern = /(login|admin|signin|wp-login\\.php)/i;
+  const badStatuses = ['401', '403', '429'];
+
+  const suspicious = entries.filter(entry => {
+    return loginPattern.test(entry.path) && badStatuses.includes(entry.status);
+  });
+
+  return suspicious.map(entry => ({
+    ...entry,
+    suspicion_reason: 'Brute force attempt detected'
+  }));
+}`
+      },
+      'HTTP Errors': {
+        name: 'HTTP Error Detector',
+        description: 'Identifies suspicious HTTP error patterns and responses.',
+        code: `export function detectErrors(entries: ParsedLogEntry[]): ParsedLogEntry[] {
+  const badStatuses = ['403', '404', '406', '500', '502'];
+
+  const errors = entries.filter(entry => {
+    return badStatuses.includes(entry.status);
+  });
+
+  return errors.map(entry => ({
+    ...entry,
+    suspicion_reason: \`HTTP error status: \${entry.status}\`
+  }));
+}`
+      },
+      'Internal IP Access': {
+        name: 'Internal IP Access Detector',
+        description: 'Detects access attempts from internal IP address ranges.',
+        code: `export function detectInternalIp(entries: ParsedLogEntry[]): ParsedLogEntry[] {
+  const internal = entries.filter(entry => {
+    const ip = entry.ip;
+    return ip.startsWith('192.168.') ||
+           ip.startsWith('10.') ||
+           ip.startsWith('127.') ||
+           ip.startsWith('172.');
+  });
+
+  return internal.map(entry => ({
+    ...entry,
+    suspicion_reason: 'Internal IP address detected'
+  }));
+}`
+      }
+    };
+
+    return detectorMap[attackType] || null;
   };
 
   const handleCreateDynamicAnalysis = async (description: string) => {
@@ -550,6 +807,7 @@ function App() {
                       onScan={() => handleScan(attackType)}
                       onViewDetails={() => handleViewDetails(attackType.name)}
                       hasResults={hasResults(attackType.name)}
+                      onViewFunction={() => handleViewFunction(attackType.name)}
                     />
                   ))}
                 </div>
@@ -601,6 +859,7 @@ function App() {
                             setIsModalOpen(true);
                           }}
                           hasResults={(scanResults[analysis.id]?.length || 0) > 0}
+                          onViewFunction={() => handleViewFunction(analysis.id)}
                         />
                       ))}
                     </div>
@@ -662,6 +921,19 @@ function App() {
         onCustomEndpointChange={setCustomEndpoint}
         canGenerate={canGenerateReport}
       />
+
+    // Function View Modal
+    <FunctionViewModal
+      isOpen={isFunctionModalOpen}
+      onClose={() => {
+        setIsFunctionModalOpen(false);
+        setSelectedFunction(null);
+      }}
+      title={selectedFunction?.title || ''}
+      functionCode={selectedFunction?.code || ''}
+      description={selectedFunction?.description}
+      isCustom={selectedFunction?.isCustom || false}
+    />
 
       {/* Toast Notifications */}
       <div className="fixed bottom-4 right-4 space-y-2 z-50">
