@@ -22,7 +22,7 @@ export function AttackTypeCard({ config, count, isLoading, onScan, onViewDetails
   const SeverityIcon = severityIcons[config.severity];
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-1 border border-gray-200 dark:border-gray-700">
+    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-1 border border-gray-200 dark:border-gray-700 flex flex-col h-full">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center space-x-3">
           <div 
@@ -60,11 +60,11 @@ export function AttackTypeCard({ config, count, isLoading, onScan, onViewDetails
         </div>
       </div>
 
-      <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+      <p className="text-sm text-gray-600 dark:text-gray-300">
         {config.description}
       </p>
 
-      <div className="space-y-2">
+      <div className="space-y-2 mt-auto">
         <button
           onClick={onScan}
           disabled={isLoading}
