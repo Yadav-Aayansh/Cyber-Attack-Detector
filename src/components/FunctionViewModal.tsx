@@ -34,7 +34,7 @@ export function FunctionViewModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden animate-scale-in">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto premium-scrollbar animate-scale-in">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-3">
@@ -77,7 +77,7 @@ export function FunctionViewModal({
         )}
 
         {/* Function Code */}
-        <div className="flex-1 overflow-y-auto max-h-[calc(90vh-200px)] premium-scrollbar">
+        <div className="flex-1">
           <div className="p-6">
             <div className="bg-gray-900 dark:bg-gray-950 rounded-lg overflow-hidden">
               <div className="flex items-center justify-between px-4 py-2 bg-gray-800 dark:bg-gray-900 border-b border-gray-700">
@@ -88,7 +88,7 @@ export function FunctionViewModal({
                   {functionCode.split('\n').length} lines
                 </span>
               </div>
-              <pre className="p-4 text-sm font-mono text-gray-100 overflow-x-auto whitespace-pre-wrap">
+              <pre className="p-4 text-sm font-mono text-gray-100 overflow-x-auto whitespace-pre-wrap max-h-96 overflow-y-auto premium-scrollbar">
                 <code>{functionCode}</code>
               </pre>
             </div>
