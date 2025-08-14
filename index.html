@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Detect - Advanced Security Log Analysis</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Configure Tailwind for dark mode -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    animation: {
+                        'slide-in': 'slideIn 0.3s ease-out',
+                        'scale-in': 'scaleIn 0.2s ease-out',
+                    },
+                    keyframes: {
+                        slideIn: {
+                            from: { transform: 'translateX(100%)', opacity: '0' },
+                            to: { transform: 'translateX(0)', opacity: '1' },
+                        },
+                        scaleIn: {
+                            from: { transform: 'scale(0.95)', opacity: '0' },
+                            to: { transform: 'scale(1)', opacity: '1' },
+                        },
+                    },
+                },
+            },
+        }
+    </script>
+
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+    <!-- Custom  -->
+    <script src="./script.js"></script>
+</head>
+
+<body class="min-h-screen transition-colors duration-200 bg-gray-50 dark:bg-gray-900">
+    <!-- Header -->
+    <header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                        <i data-lucide="shield" class="w-8 h-8 text-blue-600 dark:text-blue-400"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-900 dark:text-white">
+                            Cyber Detect
+                        </h1>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                            Advanced Security Log Analysis
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-4">
+                    <!-- Export Buttons -->
+                    <div id="export-buttons" class="flex items-center space-x-2 hidden">
+                        <button id="export-csv"
+                            class="flex items-center space-x-1 px-3 py-1 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors">
+                            <i data-lucide="download" class="w-4 h-4"></i>
+                            <span>CSV</span>
+                        </button>
+                        <button id="export-json"
+                            class="flex items-center space-x-1 px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                            <i data-lucide="download" class="w-4 h-4"></i>
+                            <span>JSON</span>
+                        </button>
+                    </div>
+
+                    <!-- Theme Toggle -->
+                    <button id="theme-toggle"
+                        class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <i data-lucide="moon" class="w-5 h-5 dark:hidden"></i>
+                        <i data-lucide="sun" class="w-5 h-5 hidden dark:block"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex space-x-8">
+                <button id="tab-overview"
+                    class="nav-tab flex items-center space-x-2 px-3 py-4 text-sm font-medium border-b-2 transition-colors border-blue-500 text-blue-600 dark:text-blue-400">
+                    <i data-lucide="shield" class="w-4 h-4"></i>
+                    <span>Overview</span>
+                </button>
+                <button id="tab-dashboard"
+                    class="nav-tab flex items-center space-x-2 px-3 py-4 text-sm font-medium border-b-2 transition-colors border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                    <span>Dashboard</span>
+                </button>
+                <button id="tab-data"
+                    class="nav-tab flex items-center space-x-2 px-3 py-4 text-sm font-medium border-b-2 transition-colors border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                    <i data-lucide="database" class="w-4 h-4"></i>
+                    <span>Data Table</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Overview Tab -->
+        <div id="view-overview" class="tab-content space-y-8">
+            <!-- File Upload -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                    Upload Log File or Try Demo
+                </h2>
+
+                <!-- Demo Dataset Card -->
+                <div id="demo-card"
+                    class="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 border-2 border-dashed border-blue-300 dark:border-blue-600 hover:border-blue-400 dark:hover:border-blue-500 transition-all duration-200 mb-6">
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex items-center space-x-3">
+                            <div class="p-2 bg-blue-500 rounded-lg">
+                                <i data-lucide="database" class="w-6 h-6 text-white"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                                    Demo Dataset
+                                </h3>
+                                <p class="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                                    Synthetic Apache Server Logs
+                                </p>
+                            </div>
+                        </div>
+                        <a href="https://raw.githubusercontent.com/Yadav-Aayansh/gramener-datasets/add-server-logs/server_logs.zip"
+                            target="_blank" rel="noopener noreferrer"
+                            class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-lg hover:bg-white/50 dark:hover:bg-gray-700/50 transition-colors">
+                            <i data-lucide="external-link" class="w-4 h-4"></i>
+                        </a>
+                    </div>
+
+                    <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                        Test the application with pre-generated Apache server logs containing various security threats
+                        and attack patterns.
+                        Perfect for exploring all detection capabilities without needing your own log files.
+                    </p>
+
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400">
+                            <div class="flex items-center space-x-1">
+                                <i data-lucide="download" class="w-3 h-3"></i>
+                                <span>ZIP Format</span>
+                            </div>
+                            <div class="flex items-center space-x-1">
+                                <i data-lucide="check-circle" class="w-3 h-3"></i>
+                                <span>Ready to Use</span>
+                            </div>
+                        </div>
+
+                        <button id="load-demo"
+                            class="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors">
+                            <i data-lucide="play" class="w-4 h-4"></i>
+                            <span>Load Demo</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Divider -->
+                <div class="relative my-6">
+                    <div class="absolute inset-0 flex items-center">
+                        <div class="w-full border-t border-gray-300 dark:border-gray-600"></div>
+                    </div>
+                    <div class="relative flex justify-center text-sm">
+                        <span class="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                            Or upload your own file
+                        </span>
+                    </div>
+                </div>
+
+                <!-- File Upload -->
+                <div id="file-upload-area"
+                    class="relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 cursor-pointer">
+                    <input type="file" id="file-input" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        accept=".log,.txt,.zip,.gz">
+
+                    <div class="flex flex-col items-center space-y-4">
+                        <i data-lucide="upload" class="w-12 h-12 text-gray-400"></i>
+
+                        <div>
+                            <p class="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                                Upload Log File
+                            </p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">
+                                Drag and drop your log file here, or click to select
+                            </p>
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                Supported formats: .log, .txt, .zip, .gz • Max size: 100MB
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="selected-file" class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg hidden">
+                    <p class="text-sm text-blue-800 dark:text-blue-200">
+                        <i data-lucide="file-text" class="w-4 h-4 inline mr-2"></i>
+                        <span id="file-info">Selected: filename.log (2.5 MB)</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Attack Type Cards -->
+            <div id="attack-section" class="hidden">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
+                        Security Threat Analysis
+                    </h2>
+                    <button id="run-all-scans"
+                        class="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                        <i data-lucide="shield" class="w-5 h-5"></i>
+                        <span>Run All Scans</span>
+                    </button>
+                </div>
+                <div id="attack-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <!-- Attack type cards will be dynamically generated here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Tab -->
+        <div id="view-dashboard" class="tab-content hidden">
+            <div class="space-y-6">
+                <!-- Summary Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div
+                        class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-300">Total Threats</p>
+                                <p id="total-threats" class="text-3xl font-bold text-gray-900 dark:text-white">0</p>
+                            </div>
+                            <div class="p-3 bg-red-100 dark:bg-red-900/20 rounded-lg">
+                                <i data-lucide="alert-triangle" class="w-6 h-6 text-red-600 dark:text-red-400"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div
+                        class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-300">Unique IPs</p>
+                                <p id="unique-ips" class="text-3xl font-bold text-gray-900 dark:text-white">0</p>
+                            </div>
+                            <div class="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                                <i data-lucide="activity" class="w-6 h-6 text-blue-600 dark:text-blue-400"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div
+                        class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-300">Attack Types</p>
+                                <p id="attack-types-count" class="text-3xl font-bold text-gray-900 dark:text-white">0
+                                </p>
+                            </div>
+                            <div class="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                                <i data-lucide="shield" class="w-6 h-6 text-green-600 dark:text-green-400"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div
+                        class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-300">Top Attacker</p>
+                                <p id="top-attacker-ip" class="text-lg font-bold text-gray-900 dark:text-white">N/A</p>
+                                <p id="top-attacker-count" class="text-sm text-gray-500 dark:text-gray-400">0 attempts
+                                </p>
+                            </div>
+                            <div class="p-3 bg-yellow-100 dark:bg-yellow-900/20 rounded-lg">
+                                <i data-lucide="trending-up" class="w-6 h-6 text-yellow-600 dark:text-yellow-400"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Attack Types Distribution -->
+                <div
+                    class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Attack Types Distribution</h3>
+                    <div id="attack-distribution" class="space-y-3">
+                        <!-- Attack distribution will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Top Attackers -->
+                <div
+                    class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Top Attackers</h3>
+                    <div id="top-attackers-list" class="space-y-3">
+                        <!-- Top attackers will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table Tab -->
+        <div id="view-data" class="tab-content hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+                <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                                Security Threats (<span id="data-count">0</span>)
+                            </h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto overflow-y-auto max-h-[600px] premium-scrollbar">
+                    <table class="w-full min-w-[1200px]">
+                        <thead class="bg-gray-50 dark:bg-gray-700 sticky top-0 z-10">
+                            <tr>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    IP Address</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    Timestamp</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    Method</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    Path</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    Status</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    Attack Type</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    Suspicion Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody id="data-table-body"
+                            class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            <!-- Table rows will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- View Details Modal -->
+    <div id="details-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 hidden">
+        <div
+            class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto premium-scrollbar animate-scale-in">
+            <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                <h2 id="modal-title" class="text-xl font-semibold text-gray-900 dark:text-white">
+                    Attack Details
+                </h2>
+                <button id="close-modal"
+                    class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div id="modal-content" class="overflow-x-auto">
+                    <!-- Modal content will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Function Modal -->
+    <div id="function-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 hidden">
+        <div
+            class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto premium-scrollbar animate-scale-in">
+            <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
+                        <i data-lucide="code" class="w-6 h-6 text-purple-600 dark:text-purple-400"></i>
+                    </div>
+                    <div>
+                        <h2 id="function-modal-title" class="text-xl font-semibold text-gray-900 dark:text-white">
+                            Detection Function
+                        </h2>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                            Built-in Security Detection Function
+                        </p>
+                    </div>
+                </div>
+
+                <button id="close-function-modal"
+                    class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="flex-1">
+                <div class="p-6">
+                    <div class="bg-gray-900 dark:bg-gray-950 rounded-lg overflow-hidden">
+                        <div
+                            class="flex items-center justify-between px-4 py-2 bg-gray-800 dark:bg-gray-900 border-b border-gray-700">
+                            <span class="text-sm font-medium text-gray-300">
+                                JavaScript Detection Function
+                            </span>
+                        </div>
+                        <pre id="function-code"
+                            class="p-4 text-sm font-mono text-gray-100 overflow-x-auto whitespace-pre-wrap max-h-96 overflow-y-auto premium-scrollbar">
+                            <!-- Function code will be populated here -->
+                        </pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 space-y-2 z-50">
+        <!-- Toast notifications will be added here -->
+    </div>
+
+
+</body>
+
+</html>
