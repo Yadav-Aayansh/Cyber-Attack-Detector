@@ -1,440 +1,754 @@
 <!DOCTYPE html>
-<html lang="en" class="light">
-
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cyber Detect - Advanced Security Log Analysis</title>
-
-    <!-- Tailwind CSS CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Configure Tailwind for dark mode -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        /* Custom minimal scrollbar styling */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.3);
+            border-radius: 3px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.5);
+        }
+        
+        /* Dark mode scrollbar */
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(75, 85, 99, 0.4);
+        }
+        
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(75, 85, 99, 0.6);
+        }
+        
+        /* Firefox scrollbar styling */
+        .custom-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
+        }
+        
+        .dark .custom-scrollbar {
+            scrollbar-color: rgba(75, 85, 99, 0.4) transparent;
+        }
+    </style>
     <script>
         tailwind.config = {
             darkMode: 'class',
             theme: {
                 extend: {
-                    animation: {
-                        'slide-in': 'slideIn 0.3s ease-out',
-                        'scale-in': 'scaleIn 0.2s ease-out',
-                    },
-                    keyframes: {
-                        slideIn: {
-                            from: { transform: 'translateX(100%)', opacity: '0' },
-                            to: { transform: 'translateX(0)', opacity: '1' },
-                        },
-                        scaleIn: {
-                            from: { transform: 'scale(0.95)', opacity: '0' },
-                            to: { transform: 'scale(1)', opacity: '1' },
-                        },
-                    },
-                },
-            },
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
         }
     </script>
-
-    <!-- External Libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-
-    <!-- Custom  -->
-    <script src="./script.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-
-<body class="min-h-screen transition-colors duration-200 bg-gray-50 dark:bg-gray-900">
-    <!-- Header -->
-    <header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-                <div class="flex items-center space-x-3">
-                    <div class="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                        <i data-lucide="shield" class="w-8 h-8 text-blue-600 dark:text-blue-400"></i>
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+    <div id="app">
+        <!-- Header -->
+        <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 transition-colors duration-300">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center py-6">
+                    <!-- Logo and Title -->
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 bg-primary-100 dark:bg-primary-900 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-shield-alt text-primary-600 dark:text-primary-400 text-xl"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Cyber Detect</h1>
+                            <p class="text-gray-600 dark:text-gray-400 text-sm">Advanced Security Log Analysis</p>
+                        </div>
                     </div>
-                    <div>
-                        <h1 class="text-xl font-bold text-gray-900 dark:text-white">
-                            Cyber Detect
-                        </h1>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">
-                            Advanced Security Log Analysis
-                        </p>
-                    </div>
-                </div>
-
-                <div class="flex items-center space-x-4">
-                    <!-- Export Buttons -->
-                    <div id="export-buttons" class="flex items-center space-x-2 hidden">
-                        <button id="export-csv"
-                            class="flex items-center space-x-1 px-3 py-1 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors">
-                            <i data-lucide="download" class="w-4 h-4"></i>
-                            <span>CSV</span>
-                        </button>
-                        <button id="export-json"
-                            class="flex items-center space-x-1 px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
-                            <i data-lucide="download" class="w-4 h-4"></i>
-                            <span>JSON</span>
-                        </button>
-                    </div>
-
-                    <!-- Theme Toggle -->
-                    <button id="theme-toggle"
-                        class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                        <i data-lucide="moon" class="w-5 h-5 dark:hidden"></i>
-                        <i data-lucide="sun" class="w-5 h-5 hidden dark:block"></i>
+                    
+                    <!-- Dark Mode Toggle -->
+                    <button 
+                        @click="toggleDarkMode"
+                        class="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors duration-200"
+                    >
+                        <i :class="darkMode ? 'fas fa-sun text-yellow-500' : 'fas fa-moon text-gray-600'" class="text-lg"></i>
                     </button>
                 </div>
+                
+                <!-- Navigation Tabs -->
+                <nav class="flex space-x-8 border-b border-gray-200 dark:border-gray-700">
+                    <button 
+                        v-for="tab in tabs" 
+                        :key="tab.id"
+                        @click="activeTab = tab.id"
+                        :class="[
+                            'py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200',
+                            activeTab === tab.id 
+                                ? 'border-primary-500 text-primary-600 dark:text-primary-400' 
+                                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 hover:border-gray-300'
+                        ]"
+                    >
+                        <i :class="tab.icon" class="mr-2"></i>
+                        {{ tab.name }}
+                    </button>
+                </nav>
             </div>
-        </div>
-    </header>
+        </header>
 
-    <!-- Navigation -->
-    <nav class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex space-x-8">
-                <button id="tab-overview"
-                    class="nav-tab flex items-center space-x-2 px-3 py-4 text-sm font-medium border-b-2 transition-colors border-blue-500 text-blue-600 dark:text-blue-400">
-                    <i data-lucide="shield" class="w-4 h-4"></i>
-                    <span>Overview</span>
-                </button>
-                <button id="tab-dashboard"
-                    class="nav-tab flex items-center space-x-2 px-3 py-4 text-sm font-medium border-b-2 transition-colors border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
-                    <span>Dashboard</span>
-                </button>
-                <button id="tab-data"
-                    class="nav-tab flex items-center space-x-2 px-3 py-4 text-sm font-medium border-b-2 transition-colors border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-                    <i data-lucide="database" class="w-4 h-4"></i>
-                    <span>Data Table</span>
-                </button>
-            </div>
-        </div>
-    </nav>
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <!-- Overview Tab -->
-        <div id="view-overview" class="tab-content space-y-8">
-            <!-- File Upload -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
-                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                    Upload Log File or Try Demo
-                </h2>
+            <!-- Security Analysis Tab Content -->
+            <div v-if="activeTab === 'security-analysis'">
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Upload Log File or Try Demo</h2>
+                </div>
 
                 <!-- Demo Dataset Card -->
-                <div id="demo-card"
-                    class="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 border-2 border-dashed border-blue-300 dark:border-blue-600 hover:border-blue-400 dark:hover:border-blue-500 transition-all duration-200 mb-6">
-                    <div class="flex items-start justify-between mb-4">
-                        <div class="flex items-center space-x-3">
-                            <div class="p-2 bg-blue-500 rounded-lg">
-                                <i data-lucide="database" class="w-6 h-6 text-white"></i>
+                <div class="mb-8">
+                    <div class="border-2 border-dashed border-primary-200 dark:border-primary-800 rounded-lg p-6 bg-primary-50 dark:bg-gray-800/50 transition-colors duration-300">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-start space-x-4">
+                                <div class="w-12 h-12 bg-primary-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <i class="fas fa-database text-white text-lg"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="flex items-center space-x-2 mb-2">
+                                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Demo Dataset</h3>
+                                        <i class="fas fa-external-link-alt text-gray-400 text-sm"></i>
+                                    </div>
+                                    <p class="text-primary-600 dark:text-primary-400 font-medium mb-3">Synthetic Apache Server Logs</p>
+                                    <p class="text-gray-700 dark:text-gray-300 leading-relaxed mb-4">
+                                        Test the application with pre-generated Apache server logs containing various security threats and attack patterns. Perfect for exploring all detection capabilities without needing your own log files.
+                                    </p>
+                                    <div class="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                                        <span class="flex items-center">
+                                            <i class="fas fa-download mr-1"></i>
+                                            ZIP Format
+                                        </span>
+                                        <span class="flex items-center">
+                                            <i class="fas fa-check-circle mr-1"></i>
+                                            Ready to Use
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                                    Demo Dataset
-                                </h3>
-                                <p class="text-sm text-blue-600 dark:text-blue-400 font-medium">
-                                    Synthetic Apache Server Logs
-                                </p>
-                            </div>
+                            <button 
+                                @click="loadDemo"
+                                :disabled="isLoadingDemo"
+                                :class="[
+                                    'ml-4 px-6 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2 flex-shrink-0',
+                                    isLoadingDemo 
+                                        ? 'bg-gray-400 cursor-not-allowed text-white' 
+                                        : 'bg-primary-600 hover:bg-primary-700 text-white'
+                                ]"
+                            >
+                                <div v-if="isLoadingDemo" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                <i v-else class="fas fa-play"></i>
+                                <span>{{ isLoadingDemo ? 'Loading...' : 'Load Demo' }}</span>
+                            </button>
                         </div>
-                        <a href="https://raw.githubusercontent.com/Yadav-Aayansh/gramener-datasets/add-server-logs/server_logs.zip"
-                            target="_blank" rel="noopener noreferrer"
-                            class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-lg hover:bg-white/50 dark:hover:bg-gray-700/50 transition-colors">
-                            <i data-lucide="external-link" class="w-4 h-4"></i>
-                        </a>
                     </div>
+                </div>
 
-                    <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                        Test the application with pre-generated Apache server logs containing various security threats
-                        and attack patterns.
-                        Perfect for exploring all detection capabilities without needing your own log files.
-                    </p>
+                <!-- Upload Section -->
+                <div class="text-center mb-6">
+                    <span class="text-gray-500 dark:text-gray-400">Or upload your own file</span>
+                </div>
 
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400">
-                            <div class="flex items-center space-x-1">
-                                <i data-lucide="download" class="w-3 h-3"></i>
-                                <span>ZIP Format</span>
-                            </div>
-                            <div class="flex items-center space-x-1">
-                                <i data-lucide="check-circle" class="w-3 h-3"></i>
-                                <span>Ready to Use</span>
-                            </div>
+                <!-- File Upload Area -->
+                <div 
+                    @drop.prevent="handleFileDrop"
+                    @dragover.prevent
+                    @dragenter.prevent
+                    :class="[
+                        'mb-8 border-2 border-dashed rounded-lg p-12 text-center transition-colors duration-300',
+                        isDragOver 
+                            ? 'border-primary-400 bg-primary-50 dark:bg-primary-900/20' 
+                            : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
+                    ]"
+                    @dragenter="isDragOver = true"
+                    @dragleave="isDragOver = false"
+                >
+                    <div class="mx-auto w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center mb-4">
+                        <i class="fas fa-upload text-gray-400 text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-medium text-gray-900 dark:text-white mb-2">Upload Log File</h3>
+                    <p class="text-gray-600 dark:text-gray-400 mb-1">Drag and drop your log file here, or click to select</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-500">Supported formats: .log, .txt, .zip, .gz • Max size: 100MB</p>
+                    
+                    <input 
+                        type="file" 
+                        @change="handleFileSelect"
+                        accept=".log,.txt,.zip,.gz"
+                        class="hidden"
+                        ref="fileInput"
+                    >
+                    
+                    <button 
+                        @click="$refs.fileInput.click()"
+                        class="mt-6 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 px-6 py-2 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors duration-200"
+                    >
+                        Choose File
+                    </button>
+                    
+                    <!-- File Info -->
+                    <div v-if="selectedFile" class="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                        <div class="flex items-center justify-center space-x-2">
+                            <i class="fas fa-file text-primary-500"></i>
+                            <span class="text-gray-900 dark:text-white font-medium">{{ selectedFile.name }}</span>
+                            <span class="text-gray-500 dark:text-gray-400">({{ formatFileSize(selectedFile.size) }})</span>
                         </div>
+                    </div>
+                </div>
 
-                        <button id="load-demo"
-                            class="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors">
-                            <i data-lucide="play" class="w-4 h-4"></i>
-                            <span>Load Demo</span>
+
+                <div class="mb-8">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Security Threat Analysis</h2>
+                            <p class="text-gray-600 dark:text-gray-400">Analyze log files for security threats and attack patterns</p>
+                        </div>
+                        <button 
+                            @click="runAllScans"
+                            :disabled="!logData || isRunningAllScans"
+                            :class="[
+                                'px-6 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2',
+                                !logData || isRunningAllScans
+                                    ? 'bg-gray-400 cursor-not-allowed text-white' 
+                                    : 'bg-primary-600 hover:bg-primary-700 text-white'
+                            ]"
+                        >
+                            <div v-if="isRunningAllScans" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            <i v-else class="fas fa-play"></i>
+                            <span>{{ isRunningAllScans ? 'Running...' : 'Run All Scans' }}</span>
                         </button>
                     </div>
                 </div>
 
-                <!-- Divider -->
-                <div class="relative my-6">
-                    <div class="absolute inset-0 flex items-center">
-                        <div class="w-full border-t border-gray-300 dark:border-gray-600"></div>
-                    </div>
-                    <div class="relative flex justify-center text-sm">
-                        <span class="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                            Or upload your own file
-                        </span>
+                <!-- File Status -->
+                <div v-if="!logData" class="mb-8 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-triangle text-yellow-600 dark:text-yellow-400 mr-3"></i>
+                        <p class="text-yellow-800 dark:text-yellow-200">Please upload a log file or load the demo dataset to perform security analysis.</p>
                     </div>
                 </div>
 
-                <!-- File Upload -->
-                <div id="file-upload-area"
-                    class="relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 cursor-pointer">
-                    <input type="file" id="file-input" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        accept=".log,.txt,.zip,.gz">
-
-                    <div class="flex flex-col items-center space-y-4">
-                        <i data-lucide="upload" class="w-12 h-12 text-gray-400"></i>
-
-                        <div>
-                            <p class="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                                Upload Log File
-                            </p>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">
-                                Drag and drop your log file here, or click to select
-                            </p>
-                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                                Supported formats: .log, .txt, .zip, .gz • Max size: 100MB
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="selected-file" class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg hidden">
-                    <p class="text-sm text-blue-800 dark:text-blue-200">
-                        <i data-lucide="file-text" class="w-4 h-4 inline mr-2"></i>
-                        <span id="file-info">Selected: filename.log (2.5 MB)</span>
-                    </p>
-                </div>
-            </div>
-
-            <!-- Attack Type Cards -->
-            <div id="attack-section" class="hidden">
-                <div class="flex items-center justify-between mb-6">
-                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
-                        Security Threat Analysis
-                    </h2>
-                    <button id="run-all-scans"
-                        class="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-                        <i data-lucide="shield" class="w-5 h-5"></i>
-                        <span>Run All Scans</span>
-                    </button>
-                </div>
-                <div id="attack-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    <!-- Attack type cards will be dynamically generated here -->
-                </div>
-            </div>
-        </div>
-
-        <!-- Dashboard Tab -->
-        <div id="view-dashboard" class="tab-content hidden">
-            <div class="space-y-6">
-                <!-- Summary Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div
-                        class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-600 dark:text-gray-300">Total Threats</p>
-                                <p id="total-threats" class="text-3xl font-bold text-gray-900 dark:text-white">0</p>
-                            </div>
-                            <div class="p-3 bg-red-100 dark:bg-red-900/20 rounded-lg">
-                                <i data-lucide="alert-triangle" class="w-6 h-6 text-red-600 dark:text-red-400"></i>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div
-                        class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-600 dark:text-gray-300">Unique IPs</p>
-                                <p id="unique-ips" class="text-3xl font-bold text-gray-900 dark:text-white">0</p>
-                            </div>
-                            <div class="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                                <i data-lucide="activity" class="w-6 h-6 text-blue-600 dark:text-blue-400"></i>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div
-                        class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-600 dark:text-gray-300">Attack Types</p>
-                                <p id="attack-types-count" class="text-3xl font-bold text-gray-900 dark:text-white">0
-                                </p>
-                            </div>
-                            <div class="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
-                                <i data-lucide="shield" class="w-6 h-6 text-green-600 dark:text-green-400"></i>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div
-                        class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm font-medium text-gray-600 dark:text-gray-300">Top Attacker</p>
-                                <p id="top-attacker-ip" class="text-lg font-bold text-gray-900 dark:text-white">N/A</p>
-                                <p id="top-attacker-count" class="text-sm text-gray-500 dark:text-gray-400">0 attempts
-                                </p>
-                            </div>
-                            <div class="p-3 bg-yellow-100 dark:bg-yellow-900/20 rounded-lg">
-                                <i data-lucide="trending-up" class="w-6 h-6 text-yellow-600 dark:text-yellow-400"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Attack Types Distribution -->
-                <div
-                    class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Attack Types Distribution</h3>
-                    <div id="attack-distribution" class="space-y-3">
-                        <!-- Attack distribution will be populated here -->
-                    </div>
-                </div>
-
-                <!-- Top Attackers -->
-                <div
-                    class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Top Attackers</h3>
-                    <div id="top-attackers-list" class="space-y-3">
-                        <!-- Top attackers will be populated here -->
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Data Table Tab -->
-        <div id="view-data" class="tab-content hidden">
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
-                <div class="p-4 border-b border-gray-200 dark:border-gray-700">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                                Security Threats (<span id="data-count">0</span>)
-                            </h3>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="overflow-x-auto overflow-y-auto max-h-[600px] premium-scrollbar">
-                    <table class="w-full min-w-[1200px]">
-                        <thead class="bg-gray-50 dark:bg-gray-700 sticky top-0 z-10">
-                            <tr>
-                                <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                    IP Address</th>
-                                <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                    Timestamp</th>
-                                <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                    Method</th>
-                                <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                    Path</th>
-                                <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                    Status</th>
-                                <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                    Attack Type</th>
-                                <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                    Suspicion Reason</th>
-                            </tr>
-                        </thead>
-                        <tbody id="data-table-body"
-                            class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                            <!-- Table rows will be populated here -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- View Details Modal -->
-    <div id="details-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 hidden">
-        <div
-            class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto premium-scrollbar animate-scale-in">
-            <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-                <h2 id="modal-title" class="text-xl font-semibold text-gray-900 dark:text-white">
-                    Attack Details
-                </h2>
-                <button id="close-modal"
-                    class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
-            <div class="p-6">
-                <div id="modal-content" class="overflow-x-auto">
-                    <!-- Modal content will be populated here -->
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- View Function Modal -->
-    <div id="function-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 hidden">
-        <div
-            class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto premium-scrollbar animate-scale-in">
-            <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-                <div class="flex items-center space-x-3">
-                    <div class="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
-                        <i data-lucide="code" class="w-6 h-6 text-purple-600 dark:text-purple-400"></i>
-                    </div>
-                    <div>
-                        <h2 id="function-modal-title" class="text-xl font-semibold text-gray-900 dark:text-white">
-                            Detection Function
-                        </h2>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">
-                            Built-in Security Detection Function
+                <div v-if="logData" class="mb-8 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                    <div class="flex items-center">
+                        <i class="fas fa-check-circle text-green-600 dark:text-green-400 mr-3"></i>
+                        <p class="text-green-800 dark:text-green-200">
+                            Log file loaded successfully. {{ logData.length }} entries ready for analysis.
                         </p>
                     </div>
                 </div>
 
-                <button id="close-function-modal"
-                    class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
+                <!-- Threat Analysis Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div 
+                        v-for="attack in attackTypes" 
+                        :key="attack.endpoint"
+                        class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors duration-300"
+                    >
+                        <!-- Header -->
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-center space-x-3">
+                                <div 
+                                    :class="[
+                                        'w-8 h-8 rounded-lg flex items-center justify-center',
+                                        getSeverityIcon(attack.severity).bgClass
+                                    ]"
+                                >
+                                    <i :class="[getSeverityIcon(attack.severity).icon, getSeverityIcon(attack.severity).textClass]"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold text-gray-900 dark:text-white">{{ attack.name }}</h3>
+                                    <span 
+                                        :class="[
+                                            'text-xs font-medium px-2 py-1 rounded-full',
+                                            getSeverityBadge(attack.severity)
+                                        ]"
+                                    >
+                                        {{ attack.severity.toUpperCase() }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-2xl font-bold text-gray-900 dark:text-white">
+                                    {{ threatResults[attack.endpoint]?.length || 0 }}
+                                </div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400">instances</div>
+                            </div>
+                        </div>
+
+                        <!-- Description -->
+                        <p class="text-gray-600 dark:text-gray-400 text-sm mb-6 leading-relaxed">
+                            {{ attack.description }}
+                        </p>
+
+                        <!-- Action Buttons -->
+                        <div class="space-y-3">
+                            <button 
+                                @click="scanThreat(attack.endpoint)"
+                                :disabled="!logData || scanningStates[attack.endpoint]"
+                                :class="[
+                                    'w-full px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2',
+                                    !logData || scanningStates[attack.endpoint]
+                                        ? 'bg-gray-400 cursor-not-allowed text-white' 
+                                        : 'bg-primary-600 hover:bg-primary-700 text-white'
+                                ]"
+                            >
+                                <div v-if="scanningStates[attack.endpoint]" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                <i v-else class="fas fa-search"></i>
+                                <span>{{ scanningStates[attack.endpoint] ? 'Scanning...' : 'Scan' }}</span>
+                            </button>
+                            <button 
+                                @click="viewThreatFunction(attack.endpoint)"
+                                class="w-full px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white"
+                            >
+                                <i class="fas fa-code"></i>
+                                <span>View Function</span>
+                            </button>
+                            <button 
+                                @click="viewResults(attack.endpoint)"
+                                :disabled="!threatResults[attack.endpoint] || threatResults[attack.endpoint].length === 0"
+                                :class="[
+                                    'w-full px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center space-x-2',
+                                    !threatResults[attack.endpoint] || threatResults[attack.endpoint].length === 0
+                                        ? 'bg-gray-400 cursor-not-allowed text-white' 
+                                        : 'bg-green-600 hover:bg-green-700 text-white'
+                                ]"
+                            >
+                                <i class="fas fa-eye"></i>
+                                <span>View Results</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div class="flex-1">
-                <div class="p-6">
-                    <div class="bg-gray-900 dark:bg-gray-950 rounded-lg overflow-hidden">
-                        <div
-                            class="flex items-center justify-between px-4 py-2 bg-gray-800 dark:bg-gray-900 border-b border-gray-700">
-                            <span class="text-sm font-medium text-gray-300">
-                                JavaScript Detection Function
-                            </span>
+            <!-- Dashboard Tab Content -->
+            <div v-if="activeTab === 'dashboard'" class="text-center py-16">
+                <div class="w-24 h-24 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-chart-bar text-gray-400 text-3xl"></i>
+                </div>
+                <h3 class="text-xl font-medium text-gray-900 dark:text-white mb-2">Dashboard Coming Soon</h3>
+                <p class="text-gray-600 dark:text-gray-400">Analytics and visualizations will be available here.</p>
+            </div>
+
+            <!-- Data Table Tab Content -->
+            <div v-if="activeTab === 'data-table'">
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Security Data Table</h2>
+                    <p class="text-gray-600 dark:text-gray-400">View all detected security threats in a comprehensive table format</p>
+                </div>
+
+                <!-- No Data Message -->
+                <div v-if="getAllResults().length === 0" class="text-center py-16">
+                    <div class="w-24 h-24 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-table text-gray-400 text-3xl"></i>
+                    </div>
+                    <h3 class="text-xl font-medium text-gray-900 dark:text-white mb-2">No Data Available</h3>
+                    <p class="text-gray-600 dark:text-gray-400">Run security scans to see results in the data table.</p>
+                </div>
+
+                <!-- Data Table with Filters -->
+                <div v-else class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div class="flex h-[800px]">
+                        <!-- Left Sidebar - Filters -->
+                        <div class="custom-scrollbar w-80 min-w-80 border-r border-gray-200 dark:border-gray-700 p-6 overflow-y-auto bg-gray-50 dark:bg-gray-900">
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Filters</h3>
+                                <button 
+                                    @click="clearAllFilters('dataTable')"
+                                    class="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 px-2 py-1 rounded hover:bg-primary-50 dark:hover:bg-primary-900/20"
+                                >
+                                    Clear All
+                                </button>
+                            </div>
+
+                            <!-- Search Filter -->
+                            <div class="mb-6">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Search</label>
+                                <input 
+                                    v-model="dataTableFilters.search"
+                                    type="text"
+                                    placeholder="Search all fields..."
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                >
+                            </div>
+
+                            <!-- IP Address Filter -->
+                            <div class="mb-6">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">IP Address</label>
+                                <input 
+                                    v-model="dataTableFilters.ipAddress"
+                                    type="text"
+                                    placeholder="Filter by IP..."
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                >
+                            </div>
+
+                            <!-- Attack Type Filter -->
+                            <div class="mb-6">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Attack Type</label>
+                                <div class="space-y-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                                    <div 
+                                        v-for="attackType in getUniqueValues(getAllResults(), 'attack_type')" 
+                                        :key="attackType"
+                                        class="flex items-center"
+                                    >
+                                        <input 
+                                            type="checkbox"
+                                            :checked="dataTableFilters.attackType.includes(attackType)"
+                                            @change="toggleFilter(dataTableFilters.attackType, attackType)"
+                                            class="mr-2 text-primary-600 focus:ring-primary-500"
+                                        >
+                                        <span class="text-sm text-gray-700 dark:text-gray-300 cursor-pointer" @click="toggleFilter(dataTableFilters.attackType, attackType)">{{ attackType }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- HTTP Method Filter -->
+                            <div class="mb-6">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">HTTP Method</label>
+                                <div class="space-y-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                                    <div 
+                                        v-for="method in getUniqueValues(getAllResults(), 'method')" 
+                                        :key="method"
+                                        class="flex items-center"
+                                    >
+                                        <input 
+                                            type="checkbox"
+                                            :checked="dataTableFilters.httpMethod.includes(method)"
+                                            @change="toggleFilter(dataTableFilters.httpMethod, method)"
+                                            class="mr-2 text-primary-600 focus:ring-primary-500"
+                                        >
+                                        <span class="text-sm text-gray-700 dark:text-gray-300 cursor-pointer" @click="toggleFilter(dataTableFilters.httpMethod, method)">{{ method }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Status Code Filter -->
+                            <div class="mb-6">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status Code</label>
+                                <div class="space-y-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                                    <div 
+                                        v-for="status in getUniqueValues(getAllResults(), 'status')" 
+                                        :key="status"
+                                        class="flex items-center"
+                                    >
+                                        <input 
+                                            type="checkbox"
+                                            :checked="dataTableFilters.statusCode.includes(status)"
+                                            @change="toggleFilter(dataTableFilters.statusCode, status)"
+                                            class="mr-2 text-primary-600 focus:ring-primary-500"
+                                        >
+                                        <span class="text-sm text-gray-700 dark:text-gray-300 cursor-pointer" @click="toggleFilter(dataTableFilters.statusCode, status)">{{ status }}</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <pre id="function-code"
-                            class="p-4 text-sm font-mono text-gray-100 overflow-x-auto whitespace-pre-wrap max-h-96 overflow-y-auto premium-scrollbar">
-                            <!-- Function code will be populated here -->
-                        </pre>
+
+                        <!-- Right Content - Table -->
+                        <div class="flex-1 flex flex-col min-w-0 custom-scrollbar">
+                            <!-- Results Summary -->
+                            <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-900">
+                                <div class="text-sm text-gray-600 dark:text-gray-400">
+                                    Showing {{ getPaginatedResults(getFilteredResults(getAllResults(), dataTableFilters), dataTableCurrentPage, dataTablePerPage).length }} 
+                                    of {{ getFilteredResults(getAllResults(), dataTableFilters).length }} results
+                                </div>
+                                <div class="text-sm text-gray-600 dark:text-gray-400">
+                                    Total threats: {{ getAllResults().length }}
+                                </div>
+                            </div>
+
+                            <!-- Table -->
+                            <div class="flex-1 overflow-auto">
+                                <table class="w-full text-sm min-w-max">
+                                    <thead class="bg-gray-50 dark:bg-gray-700">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300 sticky top-0 bg-gray-50 dark:bg-gray-700 min-w-32">IP Address</th>
+                                            <th class="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300 sticky top-0 bg-gray-50 dark:bg-gray-700 min-w-40">Timestamp</th>
+                                            <th class="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300 sticky top-0 bg-gray-50 dark:bg-gray-700 min-w-20">Method</th>
+                                            <th class="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300 sticky top-0 bg-gray-50 dark:bg-gray-700 min-w-80">Path</th>
+                                            <th class="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300 sticky top-0 bg-gray-50 dark:bg-gray-700 min-w-20">Status</th>
+                                            <th class="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300 sticky top-0 bg-gray-50 dark:bg-gray-700 min-w-32">Attack Type</th>
+                                            <th class="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300 sticky top-0 bg-gray-50 dark:bg-gray-700 min-w-60">Reason</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                                        <tr 
+                                            v-for="result in getPaginatedResults(getFilteredResults(getAllResults(), dataTableFilters), dataTableCurrentPage, dataTablePerPage)" 
+                                            :key="`${result.ip}-${result.timestamp}-${result.path}`"
+                                            class="hover:bg-gray-50 dark:hover:bg-gray-700"
+                                        >
+                                            <td class="px-4 py-3 text-gray-900 dark:text-white font-mono">{{ result.ip }}</td>
+                                            <td class="px-4 py-3 text-gray-600 dark:text-gray-400">{{ formatTimestamp(result.timestamp) }}</td>
+                                            <td class="px-4 py-3">
+                                                <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                                                    {{ result.method }}
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-3 text-gray-600 dark:text-gray-400 font-mono" :title="result.path">
+                                                <div class="max-w-80 truncate">{{ result.path }}</div>
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                <span :class="['px-2 py-1 text-xs font-medium rounded-full', getStatusBadgeClass(result.status)]">
+                                                    {{ result.status }}
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-3 text-gray-600 dark:text-gray-400">{{ result.attack_type }}</td>
+                                            <td class="px-4 py-3 text-gray-600 dark:text-gray-400" :title="result.suspicion_reason">
+                                                <div class="max-w-60 truncate">{{ result.suspicion_reason }}</div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Pagination -->
+                            <div class="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-900">
+                                <div class="text-sm text-gray-600 dark:text-gray-400">
+                                    Page {{ dataTableCurrentPage }} of {{ getTotalPages(getFilteredResults(getAllResults(), dataTableFilters).length, dataTablePerPage) }}
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button 
+                                        @click="dataTableCurrentPage = Math.max(1, dataTableCurrentPage - 1)"
+                                        :disabled="dataTableCurrentPage === 1"
+                                        class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white dark:hover:bg-gray-800 bg-white dark:bg-gray-800"
+                                    >
+                                        Previous
+                                    </button>
+                                    <button 
+                                        @click="dataTableCurrentPage = Math.min(getTotalPages(getFilteredResults(getAllResults(), dataTableFilters).length, dataTablePerPage), dataTableCurrentPage + 1)"
+                                        :disabled="dataTableCurrentPage === getTotalPages(getFilteredResults(getAllResults(), dataTableFilters).length, dataTablePerPage)"
+                                        class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white dark:hover:bg-gray-800 bg-white dark:bg-gray-800"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Modal for View Function -->
+        <div v-if="showFunctionModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+                <div class="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                        {{ currentFunctionName }} Detection Function
+                    </h3>
+                    <button 
+                        @click="showFunctionModal = false"
+                        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                <div class="p-6 overflow-y-auto max-h-[70vh]">
+                    <pre class="bg-gray-100 dark:bg-gray-900 p-4 rounded-lg overflow-x-auto text-sm text-gray-900 dark:text-gray-100"><code class="text-gray-900 dark:text-gray-100">{{ currentFunctionCode }}</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal for View Results -->
+        <div v-if="showResultsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-lg max-w-7xl w-full max-h-[90vh] overflow-hidden">
+                <div class="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                        {{ currentResultsTitle }} - Detection Results
+                    </h3>
+                    <button 
+                        @click="showResultsModal = false"
+                        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                
+                <div class="flex max-h-[80vh]">
+                    <!-- Left Sidebar - Filters -->
+                    <div class="custom-scrollbar w-80 border-r border-gray-200 dark:border-gray-700 p-6 overflow-y-auto">
+                        <div class="flex items-center justify-between mb-6">
+                            <h4 class="text-md font-semibold text-gray-900 dark:text-white">Filters</h4>
+                            <button 
+                                @click="clearAllFilters('results')"
+                                class="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                            >
+                                Clear All
+                            </button>
+                        </div>
+
+                        <!-- Search Filter -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Search</label>
+                            <input 
+                                v-model="resultsFilters.search"
+                                type="text"
+                                placeholder="Search all fields..."
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                            >
+                        </div>
+
+                        <!-- IP Address Filter -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">IP Address</label>
+                            <input 
+                                v-model="resultsFilters.ipAddress"
+                                type="text"
+                                placeholder="Filter by IP..."
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                            >
+                        </div>
+
+                        <!-- HTTP Method Filter -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">HTTP Method</label>
+                            <div class="space-y-2">
+                                <div 
+                                    v-for="method in getUniqueValues(currentResults, 'method')" 
+                                    :key="method"
+                                    class="flex items-center"
+                                >
+                                    <input 
+                                        type="checkbox"
+                                        :checked="resultsFilters.httpMethod.includes(method)"
+                                        @change="toggleFilter(resultsFilters.httpMethod, method)"
+                                        class="mr-2"
+                                    >
+                                    <span class="text-sm text-gray-700 dark:text-gray-300">{{ method }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Status Code Filter -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status Code</label>
+                            <div class="space-y-2">
+                                <div 
+                                    v-for="status in getUniqueValues(currentResults, 'status')" 
+                                    :key="status"
+                                    class="flex items-center"
+                                >
+                                    <input 
+                                        type="checkbox"
+                                        :checked="resultsFilters.statusCode.includes(status)"
+                                        @change="toggleFilter(resultsFilters.statusCode, status)"
+                                        class="mr-2"
+                                    >
+                                    <span class="text-sm text-gray-700 dark:text-gray-300">{{ status }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Content - Results Table -->
+                    <div class="flex-1 p-6 overflow-y-auto custom-scrollbar">
+                        <!-- Results Summary -->
+                        <div class="mb-4 flex items-center justify-between">
+                            <div class="text-sm text-gray-600 dark:text-gray-400">
+                                Showing {{ getPaginatedResults(getFilteredResults(currentResults, resultsFilters), resultsCurrentPage, resultsPerPage).length }} 
+                                of {{ getFilteredResults(currentResults, resultsFilters).length }} results
+                            </div>
+                            <div class="text-sm text-gray-600 dark:text-gray-400">
+                                Total detections: {{ currentResults.length }}
+                            </div>
+                        </div>
+
+                        <!-- Results Table -->
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50 dark:bg-gray-700">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">IP Address</th>
+                                        <th class="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Timestamp</th>
+                                        <th class="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Method</th>
+                                        <th class="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Path</th>
+                                        <th class="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Status</th>
+                                        <th class="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">User Agent</th>
+                                        <th class="px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Reason</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                                    <tr 
+                                        v-for="result in getPaginatedResults(getFilteredResults(currentResults, resultsFilters), resultsCurrentPage, resultsPerPage)" 
+                                        :key="`${result.ip}-${result.timestamp}-${result.path}`"
+                                        class="hover:bg-gray-50 dark:hover:bg-gray-700"
+                                    >
+                                        <td class="px-4 py-3 text-gray-900 dark:text-white font-mono">{{ result.ip }}</td>
+                                        <td class="px-4 py-3 text-gray-600 dark:text-gray-400">{{ formatTimestamp(result.timestamp) }}</td>
+                                        <td class="px-4 py-3">
+                                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                                                {{ result.method }}
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3 text-gray-600 dark:text-gray-400 font-mono max-w-xs truncate" :title="result.path">{{ result.path }}</td>
+                                        <td class="px-4 py-3">
+                                            <span :class="['px-2 py-1 text-xs font-medium rounded-full', getStatusBadgeClass(result.status)]">
+                                                {{ result.status }}
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-xs truncate" :title="result.user_agent">{{ result.user_agent }}</td>
+                                        <td class="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-xs truncate" :title="result.suspicion_reason">{{ result.suspicion_reason }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        <div class="mt-6 flex items-center justify-between">
+                            <div class="text-sm text-gray-600 dark:text-gray-400">
+                                Page {{ resultsCurrentPage }} of {{ getTotalPages(getFilteredResults(currentResults, resultsFilters).length, resultsPerPage) }}
+                            </div>
+                            <div class="flex space-x-2">
+                                <button 
+                                    @click="resultsCurrentPage = Math.max(1, resultsCurrentPage - 1)"
+                                    :disabled="resultsCurrentPage === 1"
+                                    class="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
+                                >
+                                    Previous
+                                </button>
+                                <button 
+                                    @click="resultsCurrentPage = Math.min(getTotalPages(getFilteredResults(currentResults, resultsFilters).length, resultsPerPage), resultsCurrentPage + 1)"
+                                    :disabled="resultsCurrentPage === getTotalPages(getFilteredResults(currentResults, resultsFilters).length, resultsPerPage)"
+                                    class="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Toast Container -->
-    <div id="toast-container" class="fixed bottom-4 right-4 space-y-2 z-50">
-        <!-- Toast notifications will be added here -->
-    </div>
-
-
+    <script type="module" src="script.js"></script>
 </body>
-
 </html>
