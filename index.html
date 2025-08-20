@@ -7,6 +7,8 @@
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.5/dist/purify.min.js"></script>
     <style>
         /* Custom minimal scrollbar styling */
         .custom-scrollbar::-webkit-scrollbar {
@@ -44,6 +46,161 @@
         
         .dark .custom-scrollbar {
             scrollbar-color: rgba(75, 85, 99, 0.4) transparent;
+        }
+        
+        /* Markdown content styling */
+        .markdown-content {
+            line-height: 1.6;
+        }
+        
+        .markdown-content h1 {
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 1.5rem 0 1rem 0;
+            color: #1f2937;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 0.5rem;
+        }
+        
+        .dark .markdown-content h1 {
+            color: #f9fafb;
+            border-bottom-color: #374151;
+        }
+        
+        .markdown-content h2 {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 1.25rem 0 0.75rem 0;
+            color: #374151;
+        }
+        
+        .dark .markdown-content h2 {
+            color: #e5e7eb;
+        }
+        
+        .markdown-content h3 {
+            font-size: 1.25rem;
+            font-weight: semibold;
+            margin: 1rem 0 0.5rem 0;
+            color: #4b5563;
+        }
+        
+        .dark .markdown-content h3 {
+            color: #d1d5db;
+        }
+        
+        .markdown-content p {
+            margin: 0.75rem 0;
+            color: #6b7280;
+        }
+        
+        .dark .markdown-content p {
+            color: #9ca3af;
+        }
+        
+        .markdown-content ul, .markdown-content ol {
+            margin: 0.75rem 0;
+            padding-left: 1.5rem;
+            color: #6b7280;
+        }
+        
+        .dark .markdown-content ul, .dark .markdown-content ol {
+            color: #9ca3af;
+        }
+        
+        .markdown-content li {
+            margin: 0.25rem 0;
+        }
+        
+        .markdown-content strong {
+            font-weight: bold;
+            color: #374151;
+        }
+        
+        .dark .markdown-content strong {
+            color: #f3f4f6;
+        }
+        
+        .markdown-content em {
+            font-style: italic;
+        }
+        
+        .markdown-content code {
+            background-color: #f3f4f6;
+            color: #dc2626;
+            padding: 0.125rem 0.25rem;
+            border-radius: 0.25rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+        }
+        
+        .dark .markdown-content code {
+            background-color: #374151;
+            color: #fca5a5;
+        }
+        
+        .markdown-content pre {
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin: 1rem 0;
+            overflow-x: auto;
+        }
+        
+        .dark .markdown-content pre {
+            background-color: #1f2937;
+            border-color: #374151;
+        }
+        
+        .markdown-content pre code {
+            background: none;
+            color: #374151;
+            padding: 0;
+        }
+        
+        .dark .markdown-content pre code {
+            color: #e5e7eb;
+        }
+        
+        .markdown-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        
+        .markdown-content th, .markdown-content td {
+            border: 1px solid #e5e7eb;
+            padding: 0.5rem;
+            text-align: left;
+        }
+        
+        .dark .markdown-content th, .dark .markdown-content td {
+            border-color: #374151;
+        }
+        
+        .markdown-content th {
+            background-color: #f9fafb;
+            font-weight: bold;
+            color: #374151;
+        }
+        
+        .dark .markdown-content th {
+            background-color: #1f2937;
+            color: #e5e7eb;
+        }
+        
+        .markdown-content blockquote {
+            border-left: 4px solid #3b82f6;
+            padding-left: 1rem;
+            margin: 1rem 0;
+            font-style: italic;
+            color: #6b7280;
+        }
+        
+        .dark .markdown-content blockquote {
+            border-left-color: #60a5fa;
+            color: #9ca3af;
         }
     </style>
     <script>
@@ -88,13 +245,20 @@
                         </div>
                     </div>
                     
-                    <!-- Dark Mode Toggle -->
-                    <button 
-                        @click="toggleDarkMode"
-                        class="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors duration-200"
-                    >
-                        <i :class="darkMode ? 'fas fa-sun text-yellow-500' : 'fas fa-moon text-gray-600'" class="text-lg"></i>
-                    </button>
+                    <!-- Controls -->
+                    <div class="flex items-center space-x-4">
+                        <!-- Theme Toggle -->
+                        <button @click="toggleDarkMode" 
+                                class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                            <i :class="darkMode ? 'fas fa-sun' : 'fas fa-moon'" class="w-5 h-5"></i>
+                        </button>
+                        
+                        <!-- Settings Button -->
+                        <button @click="openSettings" 
+                                class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                            <i class="fas fa-cog w-5 h-5"></i>
+                        </button>
+                    </div>
                 </div>
                 
                 <!-- Navigation Tabs -->
@@ -231,20 +395,35 @@
                             <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Security Threat Analysis</h2>
                             <p class="text-gray-600 dark:text-gray-400">Analyze log files for security threats and attack patterns</p>
                         </div>
-                        <button 
-                            @click="runAllScans"
-                            :disabled="!logData || isRunningAllScans"
-                            :class="[
-                                'px-6 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2',
-                                !logData || isRunningAllScans
-                                    ? 'bg-gray-400 cursor-not-allowed text-white' 
-                                    : 'bg-primary-600 hover:bg-primary-700 text-white'
-                            ]"
-                        >
-                            <div v-if="isRunningAllScans" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            <i v-else class="fas fa-play"></i>
-                            <span>{{ isRunningAllScans ? 'Running...' : 'Run All Scans' }}</span>
-                        </button>
+                        <div class="flex space-x-3">
+                            <button 
+                                @click="openReportGenerator"
+                                :disabled="!hasAnyResults()"
+                                :class="[
+                                    'px-6 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2',
+                                    !hasAnyResults()
+                                        ? 'bg-gray-400 cursor-not-allowed text-white' 
+                                        : 'bg-green-600 hover:bg-green-700 text-white'
+                                ]"
+                            >
+                                <i class="fas fa-file-alt"></i>
+                                <span>Generate Report</span>
+                            </button>
+                            <button 
+                                @click="runAllScans"
+                                :disabled="!logData || isRunningAllScans"
+                                :class="[
+                                    'px-6 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2',
+                                    !logData || isRunningAllScans
+                                        ? 'bg-gray-400 cursor-not-allowed text-white' 
+                                        : 'bg-primary-600 hover:bg-primary-700 text-white'
+                                ]"
+                            >
+                                <div v-if="isRunningAllScans" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                <i v-else class="fas fa-play"></i>
+                                <span>{{ isRunningAllScans ? 'Running...' : 'Run All Scans' }}</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -347,15 +526,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <!-- Dashboard Tab Content -->
-            <div v-if="activeTab === 'dashboard'" class="text-center py-16">
-                <div class="w-24 h-24 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-chart-bar text-gray-400 text-3xl"></i>
-                </div>
-                <h3 class="text-xl font-medium text-gray-900 dark:text-white mb-2">Dashboard Coming Soon</h3>
-                <p class="text-gray-600 dark:text-gray-400">Analytics and visualizations will be available here.</p>
             </div>
 
             <!-- Data Table Tab Content -->
@@ -747,8 +917,232 @@
                 </div>
             </div>
         </div>
+
+        <!-- Settings Modal -->
+        <div v-if="showSettingsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-bold text-gray-900 dark:text-white">Settings</h3>
+                        <button @click="closeSettings" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                            <div class="flex items-start">
+                                <i class="fas fa-info-circle text-blue-500 mt-1 mr-3"></i>
+                                <div>
+                                    <h4 class="font-medium text-blue-900 dark:text-blue-100 mb-1">API Configuration</h4>
+                                    <p class="text-sm text-blue-700 dark:text-blue-300">
+                                        Configure your AI provider settings once. These will be used for report generation and future AI features.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                AI Provider
+                            </label>
+                            <select v-model="settings.providerId" 
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option v-for="provider in llmProviders" :key="provider.id" :value="provider.id">
+                                    {{ provider.name }}
+                                </option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                API Key
+                            </label>
+                            <input v-model="settings.apiKey" 
+                                   type="password" 
+                                   placeholder="Enter your API key"
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        
+                        <div v-if="needsCustomEndpoint()">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                API Endpoint
+                            </label>
+                            <input v-model="settings.customEndpoint" 
+                                   type="url" 
+                                   :placeholder="getEndpointPlaceholder()"
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                        <button @click="closeSettings" 
+                                class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
+                            Cancel
+                        </button>
+                        <button @click="saveSettings" 
+                                class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center">
+                            <i class="fas fa-save mr-2"></i>
+                            Save Settings
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal for AI Report Generation -->
+        <div v-if="showReportModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-hidden">
+                <div class="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                        Generate AI Security Report
+                    </h3>
+                    <button 
+                        @click="closeReportModal"
+                        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                
+                <div class="p-6 overflow-y-auto max-h-[70vh]">
+                    <!-- LLM Provider Selection -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                            Select AI Provider
+                        </label>
+                        <div class="grid grid-cols-1 gap-3">
+                            <div 
+                                v-for="provider in llmProviders" 
+                                :key="provider.id"
+                                @click="reportConfig.providerId = provider.id"
+                                :class="[
+                                    'p-4 border-2 rounded-lg cursor-pointer transition-colors duration-200',
+                                    reportConfig.providerId === provider.id 
+                                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' 
+                                        : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                                ]"
+                            >
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h4 class="font-medium text-gray-900 dark:text-white">{{ provider.name }}</h4>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">{{ provider.description }}</p>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input 
+                                            type="radio" 
+                                            :checked="reportConfig.providerId === provider.id"
+                                            class="text-primary-600 focus:ring-primary-500"
+                                            readonly
+                                        >
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- API Key Input -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            API Key
+                        </label>
+                        <input 
+                            v-model="reportConfig.apiKey"
+                            type="password"
+                            placeholder="Enter your API key..."
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        >
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Your API key is used only for this request and is not stored.
+                        </p>
+                    </div>
+
+                    <!-- Custom Endpoint (for AIPipe and Custom) -->
+                    <div v-if="needsCustomEndpoint()" class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Custom Endpoint URL
+                        </label>
+                        <input 
+                            v-model="reportConfig.customEndpoint"
+                            type="url"
+                            :placeholder="getEndpointPlaceholder()"
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        >
+                    </div>
+
+                    <!-- Report Summary -->
+                    <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                        <h4 class="font-medium text-gray-900 dark:text-white mb-2">Report Summary</h4>
+                        <div class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                            <p>Total Threats: {{ getTotalThreats() }}</p>
+                            <p>Attack Types: {{ getUniqueAttackTypes().length }}</p>
+                            <p>Dataset: {{ selectedFile?.name || 'Demo Dataset' }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-3">
+                    <button 
+                        @click="closeReportModal"
+                        class="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        @click="generateAIReport"
+                        :disabled="!canGenerateReport() || isGeneratingReport"
+                        :class="[
+                            'px-6 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center space-x-2',
+                            !canGenerateReport() || isGeneratingReport
+                                ? 'bg-gray-400 cursor-not-allowed text-white' 
+                                : 'bg-primary-600 hover:bg-primary-700 text-white'
+                        ]"
+                    >
+                        <div v-if="isGeneratingReport" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <i v-else class="fas fa-magic"></i>
+                        <span>{{ isGeneratingReport ? 'Generating...' : 'Generate Report' }}</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal for Generated Report -->
+        <div v-if="showGeneratedReportModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden">
+                <div class="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                        AI Generated Security Report
+                    </h3>
+                    <div class="flex items-center space-x-3">
+                        <button 
+                            @click="downloadReport"
+                            class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium flex items-center space-x-2"
+                        >
+                            <i class="fas fa-download"></i>
+                            <span>Download</span>
+                        </button>
+                        <button 
+                            @click="showGeneratedReportModal = false"
+                            class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        >
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="p-6 overflow-y-auto max-h-[80vh] custom-scrollbar">
+                    <div 
+                        v-html="renderedReport" 
+                        class="markdown-content"
+                    ></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script type="module" src="script.js"></script>
+    <script type="module" src="llmService.js"></script>
+    <script type="module" src="reportGenerator.js"></script>
 </body>
 </html>

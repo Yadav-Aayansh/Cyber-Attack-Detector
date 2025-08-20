@@ -50,6 +50,22 @@ createApp({
             },
             dataTableCurrentPage: 1,
             dataTablePerPage: 50,
+            // Report generation
+            showReportModal: false,
+            showGeneratedReportModal: false,
+            showSettingsModal: false,
+            isGeneratingReport: false,
+            generatedReport: '',
+            renderedReport: '',
+            // Flag to track if user initiated report generation but needs to set API keys first
+            pendingReportGeneration: false,
+            // Persistent settings stored in localStorage
+            settings: {
+                providerId: 'gemini',
+                apiKey: '',
+                customEndpoint: ''
+            },
+            llmProviders: [],
             tabs: [
                 {
                     id: 'security-analysis',
@@ -71,6 +87,8 @@ createApp({
     },
     mounted() {
         this.initializeAttackTypes();
+        this.initializeLLMProviders();
+        this.loadSettings();
         // Check for saved theme preference or default to light mode
         const savedTheme = localStorage.getItem('theme');
         if (savedTheme) {
@@ -86,7 +104,7 @@ createApp({
             try {
                 const module = await import('./attackTypes.js');
                 this.attackTypes = module.default;
-                
+
                 // Initialize scanning states
                 this.attackTypes.forEach(attack => {
                     this.scanningStates[attack.endpoint] = false;
@@ -95,6 +113,46 @@ createApp({
             } catch (error) {
                 console.error('Failed to load attack types:', error);
             }
+        },
+        async initializeLLMProviders() {
+            try {
+                const module = await import('./reportGenerator.js');
+                this.llmProviders = module.LLM_PROVIDERS;
+            } catch (error) {
+                console.error('Failed to load LLM providers:', error);
+            }
+        },
+        loadSettings() {
+            try {
+                const savedSettings = localStorage.getItem('threatAnalysisSettings');
+                if (savedSettings) {
+                    this.settings = { ...this.settings, ...JSON.parse(savedSettings) };
+                }
+            } catch (error) {
+                console.error('Failed to load settings:', error);
+            }
+        },
+        saveSettings() {
+            try {
+                localStorage.setItem('threatAnalysisSettings', JSON.stringify(this.settings));
+                this.showNotification('Settings saved successfully!', 'success');
+                this.showSettingsModal = false;
+
+                // If user was trying to generate a report, do it now
+                if (this.pendingReportGeneration) {
+                    this.pendingReportGeneration = false;
+                    this.generateAIReport();
+                }
+            } catch (error) {
+                console.error('Failed to save settings:', error);
+                this.showNotification('Failed to save settings', 'error');
+            }
+        },
+        openSettings() {
+            this.showSettingsModal = true;
+        },
+        closeSettings() {
+            this.showSettingsModal = false;
         },
         toggleDarkMode() {
             this.darkMode = !this.darkMode;
@@ -125,34 +183,34 @@ createApp({
             // Validate file type
             const allowedTypes = ['.log', '.txt', '.zip', '.gz'];
             const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
-            
+
             if (!allowedTypes.includes(fileExtension)) {
                 alert('Please select a valid log file (.log, .txt, .zip, .gz)');
                 return;
             }
-            
+
             // Validate file size (100MB limit)
             const maxSize = 100 * 1024 * 1024; // 100MB in bytes
             if (file.size > maxSize) {
                 alert('File size exceeds 100MB limit');
                 return;
             }
-            
+
             this.selectedFile = file;
-            
+
             // Process the file content
             await this.processFileContent(file);
-            
+
             // Here you would typically upload the file or process it
             console.log('File selected:', file.name, 'Size:', this.formatFileSize(file.size));
-            
+
             // Show success message
             this.showNotification('File uploaded successfully!', 'success');
         },
         async processFileContent(file) {
             try {
                 let content = '';
-                
+
                 // Check if file is compressed
                 if (file.name.toLowerCase().endsWith('.zip')) {
                     content = await this.unzipFile(file);
@@ -161,10 +219,10 @@ createApp({
                 } else {
                     content = await this.readTextFile(file);
                 }
-                
+
                 this.logContent = content;
                 await this.parseLogContent(content);
-                
+
             } catch (error) {
                 console.error('Error processing file:', error);
                 this.showNotification(`Error processing file: ${error.message}`, 'error');
@@ -174,31 +232,31 @@ createApp({
             try {
                 const zip = new JSZip();
                 const zipContent = await zip.loadAsync(file);
-                
+
                 // Get all files in the zip
                 const fileNames = Object.keys(zipContent.files).filter(name => !zipContent.files[name].dir);
-                
+
                 if (fileNames.length === 0) {
                     throw new Error('No files found in ZIP archive');
                 }
-                
+
                 // Find the first .log or .txt file, or just take the first file
                 let targetFile = fileNames.find(filename => {
                     const lower = filename.toLowerCase();
                     return lower.endsWith('.log') || lower.endsWith('.txt');
                 });
-                
+
                 if (!targetFile) {
                     targetFile = fileNames[0]; // Take first file if no .log/.txt found
                 }
-                
+
                 console.log(`Extracting file: ${targetFile} from ZIP`);
                 const content = await zipContent.files[targetFile].async('text');
-                
+
                 if (!content || content.trim().length === 0) {
                     throw new Error('Extracted file is empty');
                 }
-                
+
                 return content;
             } catch (error) {
                 console.error('Error unzipping file:', error);
@@ -213,7 +271,7 @@ createApp({
                     const zip = new JSZip();
                     const zipContent = await zip.loadAsync(file);
                     const fileNames = Object.keys(zipContent.files).filter(name => !zipContent.files[name].dir);
-                    
+
                     if (fileNames.length > 0) {
                         const targetFile = fileNames[0];
                         console.log(`Extracting file: ${targetFile} from GZ`);
@@ -222,7 +280,7 @@ createApp({
                 } catch (gzipError) {
                     console.log('JSZip failed for GZ, trying as text file:', gzipError.message);
                 }
-                
+
                 // Fallback: try to read as text file
                 return await this.readTextFile(file);
             } catch (error) {
@@ -243,17 +301,17 @@ createApp({
                 if (!content || content.trim().length === 0) {
                     throw new Error('File content is empty');
                 }
-                
+
                 const { parseLogFile } = await import('./threatDetectors.js');
                 this.logData = parseLogFile(content);
-                
+
                 if (!this.logData || this.logData.length === 0) {
                     throw new Error('No valid log entries found in file');
                 }
-                
+
                 console.log(`Successfully parsed ${this.logData.length} log entries`);
                 this.showNotification(`Parsed ${this.logData.length} log entries successfully`, 'success');
-                
+
             } catch (error) {
                 console.error('Error parsing log content:', error);
                 throw new Error(`Failed to parse log file: ${error.message}`);
@@ -261,36 +319,36 @@ createApp({
         },
         formatFileSize(bytes) {
             if (bytes === 0) return '0 Bytes';
-            
+
             const k = 1024;
             const sizes = ['Bytes', 'KB', 'MB', 'GB'];
             const i = Math.floor(Math.log(bytes) / Math.log(k));
-            
+
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         },
         async loadDemo() {
             if (this.isLoadingDemo) return;
-            
+
             this.isLoadingDemo = true;
-            
+
             try {
                 this.showNotification('Loading demo dataset...', 'info');
-                
+
                 const response = await fetch('https://raw.githubusercontent.com/Yadav-Aayansh/gramener-datasets/refs/heads/add-server-logs/server_logs.zip');
-                
+
                 if (!response.ok) {
                     throw new Error(`Failed to fetch demo dataset: ${response.statusText}`);
                 }
-                
+
                 const blob = await response.blob();
                 const file = new File([blob], 'server_logs.zip', { type: 'application/zip' });
-                
+
                 // Set as selected file and process content
                 this.selectedFile = file;
                 await this.processFileContent(file);
-                
+
                 this.showNotification(`Demo dataset "${file.name}" loaded successfully!`, 'success');
-                
+
             } catch (error) {
                 console.error('Failed to load demo dataset:', error);
                 this.showNotification(`Failed to load demo dataset: ${error.message}`, 'error');
@@ -316,29 +374,29 @@ createApp({
         },
         async scanThreat(endpoint) {
             if (!this.logData || this.scanningStates[endpoint]) return;
-            
+
             this.scanningStates[endpoint] = true;
-            
+
             try {
                 const { DETECTORS } = await import('./threatDetectors.js');
                 const detector = DETECTORS[endpoint];
-                
+
                 if (!detector) {
                     throw new Error(`No detector found for ${endpoint}`);
                 }
-                
+
                 // Simulate processing time for better UX
                 await new Promise(resolve => setTimeout(resolve, 1000));
-                
+
                 const results = detector(this.logData);
                 this.threatResults[endpoint] = results;
-                
+
                 const attackType = this.attackTypes.find(a => a.endpoint === endpoint);
                 this.showNotification(
                     `${attackType?.name || endpoint} scan completed. Found ${results.length} threats.`,
                     results.length > 0 ? 'warning' : 'success'
                 );
-                
+
             } catch (error) {
                 console.error(`Error scanning ${endpoint}:`, error);
                 this.showNotification(`Error scanning ${endpoint}: ${error.message}`, 'error');
@@ -348,25 +406,25 @@ createApp({
         },
         async runAllScans() {
             if (!this.logData || this.isRunningAllScans) return;
-            
+
             this.isRunningAllScans = true;
-            
+
             try {
                 this.showNotification('Running all security scans...', 'info');
-                
+
                 // Run all scans in parallel
-                const scanPromises = this.attackTypes.map(attack => 
+                const scanPromises = this.attackTypes.map(attack =>
                     this.scanThreat(attack.endpoint)
                 );
-                
+
                 await Promise.all(scanPromises);
-                
+
                 const totalThreats = Object.values(this.threatResults).reduce((sum, results) => sum + results.length, 0);
                 this.showNotification(
                     `All scans completed. Found ${totalThreats} total threats.`,
                     totalThreats > 0 ? 'warning' : 'success'
                 );
-                
+
             } catch (error) {
                 console.error('Error running all scans:', error);
                 this.showNotification(`Error running scans: ${error.message}`, 'error');
@@ -378,17 +436,17 @@ createApp({
             try {
                 const { DETECTORS } = await import('./threatDetectors.js');
                 const detector = DETECTORS[endpoint];
-                
+
                 if (!detector) {
                     this.showNotification(`No detector found for ${endpoint}`, 'error');
                     return;
                 }
-                
+
                 const attackType = this.attackTypes.find(a => a.endpoint === endpoint);
                 this.currentFunctionName = attackType?.name || endpoint;
                 this.currentFunctionCode = detector.toString();
                 this.showFunctionModal = true;
-                
+
             } catch (error) {
                 console.error('Error viewing function:', error);
                 this.showNotification(`Error viewing function: ${error.message}`, 'error');
@@ -397,7 +455,7 @@ createApp({
         viewResults(endpoint) {
             const results = this.threatResults[endpoint] || [];
             const attackType = this.attackTypes.find(a => a.endpoint === endpoint);
-            
+
             this.currentResults = results;
             this.currentResultsTitle = attackType?.name || endpoint;
             this.showResultsModal = true;
@@ -428,20 +486,20 @@ createApp({
                 if (filters.search) {
                     const searchTerm = filters.search.toLowerCase();
                     const searchableFields = [
-                        result.ip, result.path, result.user_agent, 
+                        result.ip, result.path, result.user_agent,
                         result.referrer, result.suspicion_reason
                     ].join(' ').toLowerCase();
-                    
+
                     if (!searchableFields.includes(searchTerm)) {
                         return false;
                     }
                 }
-                
+
                 // IP Address filter
                 if (filters.ipAddress && !result.ip.includes(filters.ipAddress)) {
                     return false;
                 }
-                
+
                 // Attack Type filter
                 if (filters.attackType.length > 0) {
                     const attackTypeName = this.getAttackTypeName(result);
@@ -449,24 +507,24 @@ createApp({
                         return false;
                     }
                 }
-                
+
                 // HTTP Method filter
                 if (filters.httpMethod.length > 0 && !filters.httpMethod.includes(result.method)) {
                     return false;
                 }
-                
+
                 // Status Code filter
                 if (filters.statusCode.length > 0 && !filters.statusCode.includes(result.status)) {
                     return false;
                 }
-                
+
                 return true;
             });
         },
         getAttackTypeName(result) {
             // Try to determine attack type from suspicion reason or other fields
             const reason = result.suspicion_reason?.toLowerCase() || '';
-            
+
             if (reason.includes('sql injection')) return 'SQL Injection';
             if (reason.includes('path traversal')) return 'Path Traversal';
             if (reason.includes('bot')) return 'Bot Detection';
@@ -475,7 +533,7 @@ createApp({
             if (reason.includes('brute force')) return 'Brute Force';
             if (reason.includes('error')) return 'HTTP Errors';
             if (reason.includes('internal ip')) return 'Internal IP Access';
-            
+
             return 'Unknown';
         },
         getPaginatedResults(results, currentPage, perPage) {
@@ -538,22 +596,153 @@ createApp({
         showNotification(message, type = 'info') {
             // Simple notification system
             const notification = document.createElement('div');
-            notification.className = `fixed bottom-6 right-4 px-6 py-3 rounded-lg text-white z-50 ${
-                type === 'success' ? 'bg-green-500' : 
-                type === 'error' ? 'bg-red-500' : 
-                type === 'warning' ? 'bg-yellow-500' :
-                'bg-blue-500'
-            }`;
+            notification.className = `fixed bottom-6 right-4 px-6 py-3 rounded-lg text-white z-50 ${type === 'success' ? 'bg-green-500' :
+                    type === 'error' ? 'bg-red-500' :
+                        type === 'warning' ? 'bg-yellow-500' :
+                            'bg-blue-500'
+                }`;
             notification.textContent = message;
-            
+
             document.body.appendChild(notification);
-            
+
             // Auto remove after 3 seconds
             setTimeout(() => {
                 if (notification.parentNode) {
                     notification.parentNode.removeChild(notification);
                 }
             }, 1500);
+        },
+        hasAnyResults() {
+            return Object.values(this.threatResults).some(results => results && results.length > 0);
+        },
+        getTotalThreats() {
+            return Object.values(this.threatResults).reduce((sum, results) => sum + (results?.length || 0), 0);
+        },
+        getUniqueAttackTypes() {
+            return Object.keys(this.threatResults).filter(key => this.threatResults[key] && this.threatResults[key].length > 0);
+        },
+        needsCustomEndpoint() {
+            const provider = this.llmProviders.find(p => p.id === this.settings.providerId);
+            return provider && provider.customEndpoint;
+        },
+        getEndpointPlaceholder() {
+            const provider = this.llmProviders.find(p => p.id === this.settings.providerId);
+            return provider?.defaultEndpoint || 'https://api.example.com/v1/chat/completions';
+        },
+        canGenerateReport() {
+            return this.settings.providerId &&
+                this.settings.apiKey.trim() &&
+                this.hasAnyResults() &&
+                (!this.needsCustomEndpoint() || this.settings.customEndpoint.trim());
+        },
+        openReportGenerator() {
+            if (!this.canGenerateReport()) {
+                this.pendingReportGeneration = true;
+                this.showNotification('Please configure your API keys in Settings first', 'warning');
+                this.openSettings();
+                return;
+            }
+            this.generateAIReport();
+        },
+        async generateAIReport() {
+            if (!this.canGenerateReport() || this.isGeneratingReport) return;
+
+            // Provide immediate feedback to user
+            this.showNotification('Generating AI report...', 'info');
+
+            this.isGeneratingReport = true;
+
+            try {
+                // Prepare data for report generation
+                const allResults = this.getAllResults();
+                const summary = this.prepareSummaryData(allResults);
+                const datasetInfo = {
+                    fileName: this.selectedFile?.name || 'Demo Dataset',
+                    datasetUrl: this.selectedFile ? 'User Upload' : 'https://raw.githubusercontent.com/Yadav-Aayansh/gramener-datasets/refs/heads/add-server-logs/server_logs.zip'
+                };
+
+                // Import and use report generation service
+                const { reportGenerationService } = await import('./reportGenerator.js');
+                const result = await reportGenerationService.generateReport(
+                    allResults,
+                    summary,
+                    datasetInfo,
+                    this.settings
+                );
+
+                this.generatedReport = result.markdown;
+                this.renderMarkdownReport();
+
+                // Show generated report modal
+                this.showGeneratedReportModal = true;
+
+                this.showNotification('AI report generated successfully!', 'success');
+
+            } catch (error) {
+                console.error('Error generating AI report:', error);
+                this.showNotification(`Failed to generate report: ${error.message}`, 'error');
+            } finally {
+                this.isGeneratingReport = false;
+            }
+        },
+        prepareSummaryData(allResults) {
+            // Prepare attack type counts
+            const attackTypeCounts = {};
+            allResults.forEach(result => {
+                const attackType = result.attack_type || 'Unknown';
+                attackTypeCounts[attackType] = (attackTypeCounts[attackType] || 0) + 1;
+            });
+
+            // Prepare top attackers
+            const attackerCounts = {};
+            allResults.forEach(result => {
+                attackerCounts[result.ip] = (attackerCounts[result.ip] || 0) + 1;
+            });
+            const topAttackers = Object.entries(attackerCounts)
+                .map(([ip, count]) => ({ ip, count }))
+                .sort((a, b) => b.count - a.count);
+
+            // Prepare status code distribution
+            const statusCodeDistribution = {};
+            allResults.forEach(result => {
+                statusCodeDistribution[result.status] = (statusCodeDistribution[result.status] || 0) + 1;
+            });
+
+            return {
+                totalThreats: allResults.length,
+                attackTypeCounts,
+                topAttackers,
+                statusCodeDistribution
+            };
+        },
+        renderMarkdownReport() {
+            if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+                // Configure marked options
+                marked.setOptions({
+                    breaks: true,
+                    gfm: true
+                });
+
+                // Convert markdown to HTML and sanitize
+                const rawHtml = marked.parse(this.generatedReport);
+                this.renderedReport = DOMPurify.sanitize(rawHtml);
+            } else {
+                // Fallback: display as plain text with basic formatting
+                this.renderedReport = `<pre class="whitespace-pre-wrap">${this.generatedReport}</pre>`;
+            }
+        },
+        downloadReport() {
+            const blob = new Blob([this.generatedReport], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `security-report-${new Date().toISOString().split('T')[0]}.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            this.showNotification('Report downloaded successfully!', 'success');
         }
     }
 }).mount('#app');
