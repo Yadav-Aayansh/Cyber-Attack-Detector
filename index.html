@@ -526,6 +526,125 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- AI Custom Threat Scans Section -->
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mt-8">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center space-x-3">
+                            <div class="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                                <i class="fas fa-robot text-purple-600 dark:text-purple-400"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-xl font-bold text-gray-900 dark:text-white">AI Custom Threat Scans</h2>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">Create custom threat detectors using AI</p>
+                            </div>
+                        </div>
+                        <div class="flex space-x-3">
+                            <button 
+                                @click="openCustomThreatModal"
+                                class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors duration-200 flex items-center space-x-2"
+                                :disabled="!logData"
+                            >
+                                <i class="fas fa-plus"></i>
+                                <span>Create Custom Scan</span>
+                            </button>
+                            <button 
+                                @click="runAllCustomScans"
+                                v-if="customDetectors.length > 0"
+                                class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors duration-200 flex items-center space-x-2"
+                                :disabled="!logData"
+                            >
+                                <i class="fas fa-play"></i>
+                                <span>Run All Custom Scans</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Custom Detectors Grid -->
+                    <div v-if="customDetectors.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div 
+                            v-for="detector in customDetectors" 
+                            :key="detector.id"
+                            class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600"
+                        >
+                            <div class="flex items-start justify-between mb-3">
+                                <div class="flex items-center space-x-2">
+                                    <div :class="getSeverityIcon(detector.severity).bgClass" class="p-2 rounded-lg">
+                                        <i :class="[getSeverityIcon(detector.severity).icon, getSeverityIcon(detector.severity).textClass]"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-semibold text-gray-900 dark:text-white">{{ detector.name }}</h3>
+                                        <span :class="getSeverityBadge(detector.severity)" class="px-2 py-1 rounded-full text-xs font-medium">
+                                            {{ detector.severity.toUpperCase() }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <button 
+                                    @click="deleteCustomDetector(detector.id)"
+                                    class="text-red-500 hover:text-red-700 p-1"
+                                    title="Delete detector"
+                                >
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                            
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">{{ detector.description }}</p>
+                            
+                            <div class="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-4">
+                                <span>Created: {{ new Date(detector.createdAt).toLocaleDateString() }}</span>
+                                <span v-if="customThreatResults[detector.id]">
+                                    {{ customThreatResults[detector.id].length }} threats found
+                                </span>
+                            </div>
+                            
+                            <div class="flex space-x-2">
+                                <button 
+                                    @click="scanCustomThreat(detector.id)"
+                                    :disabled="!logData || customScanningStates[detector.id]"
+                                    class="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
+                                >
+                                    <i v-if="customScanningStates[detector.id]" class="fas fa-spinner fa-spin"></i>
+                                    <i v-else class="fas fa-search"></i>
+                                    <span>{{ customScanningStates[detector.id] ? 'Scanning...' : 'Scan' }}</span>
+                                </button>
+                                
+                                <button 
+                                    @click="viewCustomThreatFunction(detector.id)"
+                                    class="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors duration-200"
+                                    title="View function code"
+                                >
+                                    <i class="fas fa-code"></i>
+                                </button>
+                                
+                                <button 
+                                    @click="viewCustomResults(detector.id)"
+                                    :disabled="!customThreatResults[detector.id] || customThreatResults[detector.id].length === 0"
+                                    class="px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg transition-colors duration-200"
+                                    title="View results"
+                                >
+                                    <i class="fas fa-list"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Empty State -->
+                    <div v-else class="text-center py-12">
+                        <div class="mx-auto w-24 h-24 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mb-4">
+                            <i class="fas fa-robot text-3xl text-purple-600 dark:text-purple-400"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No Custom Threat Detectors</h3>
+                        <p class="text-gray-600 dark:text-gray-400 mb-4">Create AI-powered custom threat detectors to scan for specific security patterns</p>
+                        <button 
+                            @click="openCustomThreatModal"
+                            class="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors duration-200 flex items-center space-x-2 mx-auto"
+                            :disabled="!logData"
+                        >
+                            <i class="fas fa-plus"></i>
+                            <span>Create Your First Custom Scan</span>
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- Data Table Tab Content -->
@@ -726,6 +845,79 @@
                 </div>
             </div>
         </main>
+
+        <!-- Custom Threat Creation Modal -->
+        <div v-if="showCustomThreatModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-bold text-gray-900 dark:text-white">Create Custom Threat Detector</h2>
+                        <button @click="closeCustomThreatModal" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Threat Name
+                            </label>
+                            <input 
+                                v-model="customThreatName"
+                                type="text" 
+                                placeholder="e.g., Password Attacks, API Abuse, etc."
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            >
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Description
+                            </label>
+                            <textarea 
+                                v-model="customThreatDescription"
+                                rows="4"
+                                placeholder="Describe what this threat detector should look for. Be specific about patterns, behaviors, or indicators you want to detect."
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            ></textarea>
+                        </div>
+                        
+                        <div class="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg">
+                            <div class="flex items-start space-x-3">
+                                <i class="fas fa-info-circle text-blue-600 dark:text-blue-400 mt-0.5"></i>
+                                <div class="text-sm text-blue-800 dark:text-blue-200">
+                                    <p class="font-medium mb-1">Tips for better results:</p>
+                                    <ul class="list-disc list-inside space-y-1">
+                                        <li>Be specific about what patterns to look for</li>
+                                        <li>Mention relevant HTTP methods, status codes, or URL patterns</li>
+                                        <li>Include examples of suspicious behavior if possible</li>
+                                        <li>Specify if it should look in specific log fields (path, user-agent, etc.)</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3 mt-6">
+                        <button 
+                            @click="closeCustomThreatModal"
+                            class="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg transition-colors duration-200"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            @click="generateCustomThreat"
+                            :disabled="!customThreatName.trim() || !customThreatDescription.trim() || isGeneratingCustomThreat"
+                            class="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg transition-colors duration-200 flex items-center space-x-2"
+                        >
+                            <i v-if="isGeneratingCustomThreat" class="fas fa-spinner fa-spin"></i>
+                            <i v-else class="fas fa-magic"></i>
+                            <span>{{ isGeneratingCustomThreat ? 'Generating...' : 'Generate Detector' }}</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Modal for View Function -->
         <div v-if="showFunctionModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
