@@ -141,7 +141,7 @@ function detectBots(entries) {
         }
 
         if (userAgent.trim() === '' || userAgent.length < 10 || !userAgent.includes('mozilla')) {
-            return "Suspicious User-Agent";
+            return "Suspicious User-Agent / Bot";
         }
 
         return null;
